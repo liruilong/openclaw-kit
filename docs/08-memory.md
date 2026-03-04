@@ -60,20 +60,59 @@ ollama pull all-minilm       # 最小，~45MB
 
 #### 4. 配置 OpenClaw 使用本地 embedding
 
-Ollama 提供 OpenAI 兼容 API：`http://127.0.0.1:11434/v1`
+配置路径：`agents.defaults.memorySearch`
 
-配置 memory-core 的 embedding provider 指向本地 Ollama：
-
-```bash
-openclaw config set --section embedding <配置项>=<值>
+```json
+{
+  "provider": "openai",
+  "model": "nomic-embed-text",
+  "remote": {
+    "baseUrl": "http://127.0.0.1:11434/v1",
+    "apiKey": "ollama"
+  }
+}
 ```
 
-具体配置待确认（取决于 memory-core 的 embedding 配置路径）。
+> provider 设为 `openai` 是因为 Ollama 兼容 OpenAI API 格式。apiKey 随便填（Ollama 不验证）。
 
-#### 5. 重建索引
+通过 Python 脚本修改配置：
+
+```python
+import json
+p = "/Users/drakgon/.openclaw/openclaw.json"
+with open(p, "r") as f:
+    c = json.load(f)
+c["agents"]["defaults"]["memorySearch"] = {
+    "provider": "openai",
+    "model": "nomic-embed-text",
+    "remote": {
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "apiKey": "ollama"
+    }
+}
+with open(p, "w") as f:
+    json.dump(c, f, indent=2, ensure_ascii=False)
+```
+
+#### 5. 重启 Gateway 并重建索引
 
 ```bash
+openclaw gateway restart
 openclaw memory index --force
+```
+
+#### 6. 验证
+
+```bash
+openclaw memory status
+# 应显示：
+# Provider: openai (requested: openai)
+# Model: nomic-embed-text
+# Indexed: 3/3 files · 2 chunks
+# Vector dims: 768
+# Dirty: no
+
+openclaw memory search --query "搜索关键词"
 ```
 
 ## memory-lancedb（可选，未启用）

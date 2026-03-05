@@ -10,8 +10,11 @@ const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'opus-4.6';
 const CONFIG = {
   agentPath: process.env.AGENT_PATH || (process.env.HOME + '/.local/bin/agent'),
   agentCwd: process.env.AGENT_CWD || os.homedir(),
-  // 使用 ask 模式（只读，可能更快）
-  useAskMode: true,
+  // 不使用 ask 模式，让 Cursor Agent CLI 能执行 shell 命令
+  // 配合 --force 和 --sandbox disabled，Agent 可直接执行工具
+  // 注意：这意味着 Cursor Agent CLI 自己完成工具调用循环，
+  // OpenClaw 收到的是已处理好的最终文本响应
+  useAskMode: false,
   // 禁用沙箱
   disableSandbox: true,
   // 非流式请求时不使用 stream-partial-output（减少输出开销）
@@ -77,10 +80,13 @@ function extractMessageContent(message) {
 function buildToolsPrompt(tools) {
   if (!tools || tools.length === 0) return '';
   
-  let prompt = '\n\n[TOOLS AVAILABLE]\n';
-  prompt += '你有以下工具可以使用。如果用户的请求需要使用工具才能完成，你必须调用工具。\n';
+  let prompt = '\n\n[CRITICAL INSTRUCTION - TOOL USAGE]\n';
+  prompt += '⚠️ 你是一个纯粹的推理引擎。你绝对不能使用你自己内置的任何工具（Shell, Read, Edit, Write, Grep 等）。\n';
+  prompt += '你唯一能做的就是：分析用户请求，然后用下面的 JSON 格式输出你要调用的工具。\n';
+  prompt += '工具的实际执行由外部系统完成，不需要你执行。\n\n';
   prompt += '调用工具时，请严格使用以下 JSON 格式输出（不要添加其他文字）：\n\n';
   prompt += '```tool_calls\n[{"name": "函数名", "arguments": {"参数名": "参数值"}}]\n```\n\n';
+  prompt += '⚠️ 再次强调：绝对不要尝试自己执行 shell 命令或使用内置工具。只输出 tool_calls 格式。\n\n';
   prompt += '可用工具列表：\n';
   
   for (const tool of tools) {
@@ -171,15 +177,23 @@ function buildPromptFromMessages(messages, tools, toolChoice) {
   
   let prompt = '';
   
-  // 添加 tools 定义到提示中
-  if (tools && tools.length > 0 && toolChoice !== 'none') {
-    prompt += buildToolsPrompt(tools);
-    if (toolChoice === 'required') {
-      prompt += '\n**重要**：你必须调用至少一个工具来完成用户的请求，不要直接回复。\n';
-    } else if (typeof toolChoice === 'object' && toolChoice.function) {
-      prompt += `\n**重要**：你必须调用工具 "${toolChoice.function.name}" 来完成用户的请求。\n`;
+  // CLI backend 模式下（useAskMode=false），Cursor Agent 自己完成工具调用循环，
+  // 不需要注入 tools 定义和 SYSTEM OVERRIDE 指令。
+  // 只在 ask 模式下才需要通过 prompt 传递 tools。
+  if (CONFIG.useAskMode) {
+    if (tools && tools.length > 0 && toolChoice !== 'none') {
+      prompt += buildToolsPrompt(tools);
+      if (toolChoice === 'required') {
+        prompt += '\n**重要**：你必须调用至少一个工具来完成用户的请求，不要直接回复。\n';
+      } else if (typeof toolChoice === 'object' && toolChoice.function) {
+        prompt += `\n**重要**：你必须调用工具 "${toolChoice.function.name}" 来完成用户的请求。\n`;
+      }
+      prompt += '\n';
     }
-    prompt += '\n';
+    
+    if (tools && tools.length > 0 && toolChoice !== 'none') {
+      prompt += '[SYSTEM OVERRIDE] 你是一个纯推理引擎。禁止使用你自己的任何内置工具（Shell, Read, Write, Edit, ListDir, Grep, Glob 等）。当你需要执行操作时，只能通过输出 ```tool_calls``` 格式的 JSON 来请求外部系统执行。如果你尝试使用内置工具，会被安全策略拒绝——这是正常的，因为你不应该使用它们。\n\n';
+    }
   }
   
   // 构建对话历史
@@ -193,8 +207,8 @@ function buildPromptFromMessages(messages, tools, toolChoice) {
       prompt += `用户: ${content}\n\n`;
     } else if (role === 'assistant') {
       prompt += `助手: ${content}`;
-      // 处理 tool_calls
-      if (msg.tool_calls) {
+      // ask 模式下才需要在对话历史中回放 tool_calls
+      if (CONFIG.useAskMode && msg.tool_calls) {
         prompt += '\n```tool_calls\n' + JSON.stringify(msg.tool_calls.map(tc => ({
           name: tc.function.name,
           arguments: JSON.parse(tc.function.arguments)
@@ -202,7 +216,10 @@ function buildPromptFromMessages(messages, tools, toolChoice) {
       }
       prompt += '\n\n';
     } else if (role === 'tool') {
-      prompt += `工具返回 (${msg.tool_call_id}): ${content}\n\n`;
+      // ask 模式下才需要工具返回结果
+      if (CONFIG.useAskMode) {
+        prompt += `工具返回 (${msg.tool_call_id}): ${content}\n\n`;
+      }
     }
   }
   
@@ -276,7 +293,7 @@ function buildAgentArgs(model, prompt, isStream = false) {
     console.log(`[Agent] Model mapped: ${model} -> ${finalModel}`);
   }
   
-  const args = ['--model', finalModel, '--trust'];
+  const args = ['--model', finalModel, '--trust', '--force'];
   
   if (CONFIG.useAskMode) {
     args.push('--mode', 'ask');
@@ -354,15 +371,26 @@ function executeAgentNonStream(prompt, model, hasTools = false, cwd = null) {
         if (!line.trim()) continue;
         try {
           const json = JSON.parse(line);
-          // 收集 assistant 消息的内容
           if (json.type === 'assistant' && json.message?.content) {
-            for (const part of json.message.content) {
-              if (part.type === 'text') {
-                fullContent += part.text;
+            if (CONFIG.useAskMode) {
+              // ask 模式：只有一轮，累加即可
+              for (const part of json.message.content) {
+                if (part.type === 'text') {
+                  fullContent += part.text;
+                }
               }
+            } else {
+              // 非 ask 模式：多轮 assistant 消息，取最后一个（覆盖）
+              let latestText = '';
+              for (const part of json.message.content) {
+                if (part.type === 'text') {
+                  latestText += part.text;
+                }
+              }
+              fullContent = latestText;
             }
           }
-          // 如果是最终结果，使用完整内容
+          // result 始终覆盖，作为最终内容
           if (json.type === 'result' && json.result) {
             fullContent = json.result;
           }
@@ -516,9 +544,10 @@ function executeAgentStream(prompt, model, res, chatId, hasTools = false, cwd = 
     
     let buffer = '';
     let sentFirstChunk = false;
-    let fullContent = '';  // 用于检测 tool calls
+    let fullContent = '';
     let toolCallsSent = false;
-    
+    let resultReceived = false;
+
     agent.stdout.on('data', (data) => {
       buffer += data.toString();
       const lines = buffer.split('\n');
@@ -529,54 +558,88 @@ function executeAgentStream(prompt, model, res, chatId, hasTools = false, cwd = 
         try {
           const json = JSON.parse(line);
           
-          // 处理 assistant 消息（跳过没有 timestamp_ms 的完整内容消息）
-          if (json.type === 'assistant' && json.message?.content && json.timestamp_ms) {
-            for (const part of json.message.content) {
-              if (part.type === 'text' && part.text) {
-                fullContent += part.text;
-                
-                // 如果有 tools，检测是否开始输出 tool_calls
-                if (hasTools && !toolCallsSent) {
-                  // 检测是否在输出 tool_calls 块
-                  if (fullContent.includes('```tool_calls')) {
-                    // 等待完整的 tool_calls 块
+          if (CONFIG.useAskMode) {
+            // ask 模式：只有一轮 assistant 消息，直接流式发送
+            if (json.type === 'assistant' && json.message?.content && json.timestamp_ms) {
+              for (const part of json.message.content) {
+                if (part.type === 'text' && part.text) {
+                  fullContent += part.text;
+                  
+                  if (hasTools && !toolCallsSent && fullContent.includes('```tool_calls')) {
                     continue;
                   }
-                }
-                
-                // 发送第一个 chunk 时包含 role
-                if (!sentFirstChunk) {
-                  const firstChunk = {
-                    id: chatId,
-                    object: 'chat.completion.chunk',
-                    created: Math.floor(Date.now() / 1000),
-                    model: model,
-                    choices: [{
-                      index: 0,
-                      delta: { role: 'assistant', content: part.text },
-                      finish_reason: null
-                    }]
-                  };
-                  res.write(`data: ${JSON.stringify(firstChunk)}\n\n`);
-                  sentFirstChunk = true;
-                } else {
-                  res.write(buildStreamChunk(part.text, model, chatId));
+                  
+                  if (!sentFirstChunk) {
+                    const firstChunk = {
+                      id: chatId,
+                      object: 'chat.completion.chunk',
+                      created: Math.floor(Date.now() / 1000),
+                      model: model,
+                      choices: [{
+                        index: 0,
+                        delta: { role: 'assistant', content: part.text },
+                        finish_reason: null
+                      }]
+                    };
+                    res.write(`data: ${JSON.stringify(firstChunk)}\n\n`);
+                    sentFirstChunk = true;
+                  } else {
+                    res.write(buildStreamChunk(part.text, model, chatId));
+                  }
                 }
               }
             }
+          } else {
+            // 非 ask 模式：Agent 会产生多轮 assistant 消息（中间会执行工具），
+            // 只在收到 result 时一次性发送最终内容，避免重复
+            if (json.type === 'assistant' && json.message?.content) {
+              // 记录最新的 assistant 内容（每次覆盖，因为最后一个才是完整的）
+              let latestText = '';
+              for (const part of json.message.content) {
+                if (part.type === 'text' && part.text) {
+                  latestText += part.text;
+                }
+              }
+              fullContent = latestText;
+            }
           }
           
-          // 处理最终结果，检测 tool calls
-          if (json.type === 'result' && json.result && hasTools && !toolCallsSent) {
-            const parsed = parseToolCalls(json.result);
-            if (parsed && parsed.toolCalls) {
-              toolCallsSent = true;
-              // 发送 tool calls
-              parsed.toolCalls.forEach((tc, idx) => {
-                // 第一个 tool call 包含 role
-                res.write(buildStreamToolCallChunk(tc, idx, model, chatId, idx === 0 && !sentFirstChunk));
+          // 处理最终结果
+          if (json.type === 'result' && json.result) {
+            resultReceived = true;
+            const finalContent = json.result;
+            
+            if (hasTools && !toolCallsSent) {
+              const parsed = parseToolCalls(finalContent);
+              if (parsed && parsed.toolCalls) {
+                toolCallsSent = true;
+                parsed.toolCalls.forEach((tc, idx) => {
+                  res.write(buildStreamToolCallChunk(tc, idx, model, chatId, idx === 0 && !sentFirstChunk));
+                  sentFirstChunk = true;
+                });
+                continue;
+              }
+            }
+            
+            // 非 ask 模式下，result 到达时才发送完整内容
+            if (!CONFIG.useAskMode) {
+              if (!sentFirstChunk) {
+                const firstChunk = {
+                  id: chatId,
+                  object: 'chat.completion.chunk',
+                  created: Math.floor(Date.now() / 1000),
+                  model: model,
+                  choices: [{
+                    index: 0,
+                    delta: { role: 'assistant', content: finalContent },
+                    finish_reason: null
+                  }]
+                };
+                res.write(`data: ${JSON.stringify(firstChunk)}\n\n`);
                 sentFirstChunk = true;
-              });
+              } else {
+                res.write(buildStreamChunk(finalContent, model, chatId));
+              }
             }
           }
         } catch (e) {
@@ -594,6 +657,49 @@ function executeAgentStream(prompt, model, res, chatId, hasTools = false, cwd = 
       cleanup();
       
       try {
+        // 处理 buffer 中剩余的数据
+        if (buffer.trim()) {
+          try {
+            const json = JSON.parse(buffer);
+            if (json.type === 'result' && json.result) {
+              resultReceived = true;
+              if (!CONFIG.useAskMode && !sentFirstChunk) {
+                const firstChunk = {
+                  id: chatId,
+                  object: 'chat.completion.chunk',
+                  created: Math.floor(Date.now() / 1000),
+                  model: model,
+                  choices: [{
+                    index: 0,
+                    delta: { role: 'assistant', content: json.result },
+                    finish_reason: null
+                  }]
+                };
+                res.write(`data: ${JSON.stringify(firstChunk)}\n\n`);
+                sentFirstChunk = true;
+              }
+              fullContent = json.result;
+            }
+          } catch (e) {}
+        }
+
+        // 非 ask 模式下，如果没收到 result 但有 assistant 内容，发送 fallback
+        if (!CONFIG.useAskMode && !resultReceived && !sentFirstChunk && fullContent) {
+          const firstChunk = {
+            id: chatId,
+            object: 'chat.completion.chunk',
+            created: Math.floor(Date.now() / 1000),
+            model: model,
+            choices: [{
+              index: 0,
+              delta: { role: 'assistant', content: fullContent },
+              finish_reason: null
+            }]
+          };
+          res.write(`data: ${JSON.stringify(firstChunk)}\n\n`);
+          sentFirstChunk = true;
+        }
+
         // 如果有 tools 但还没发送 tool calls，最后检查一次
         if (hasTools && !toolCallsSent) {
           try {
@@ -684,8 +790,9 @@ async function handleChatCompletions(req, res) {
       return;
     }
     
-    const hasTools = tools && tools.length > 0 && tool_choice !== 'none';
-    console.log(`[${new Date().toISOString()}] Request: model=${model}, stream=${stream}, tools=${hasTools ? tools.length : 0}, cwd=${cwd || '(default)'}, prompt="${prompt.slice(0, 80)}..."`);
+    // CLI backend 模式下 Cursor Agent 自己处理工具调用，不需要代理层解析 tool_calls
+    const hasTools = CONFIG.useAskMode && tools && tools.length > 0 && tool_choice !== 'none';
+    console.log(`[${new Date().toISOString()}] Request: model=${model}, stream=${stream}, tools=${hasTools ? tools.length : 0}, askMode=${CONFIG.useAskMode}, cwd=${cwd || '(default)'}, prompt="${prompt.slice(0, 80)}..."`);
     
     if (stream) {
       // 流式响应

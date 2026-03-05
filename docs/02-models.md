@@ -1,6 +1,91 @@
 # 模型配置
 
-## 当前使用的模型提供商：火山引擎（Volcengine / 豆包）
+## 模型方案总览
+
+| 方案 | 成本 | 特点 | 适用场景 |
+|------|------|------|---------|
+| **A. Cursor Agent 代理** | 零额外成本 | 复用企业 Cursor 账号模型 | 已有企业 Cursor 账号 |
+| **B. 火山引擎（豆包）** | 按量付费 | 国产模型，Tool Use 能力强 | 需独立 API 调用 |
+| **C. 其他 OpenAI 兼容** | 按量付费 | Qwen/GLM/DeepSeek 等 | 灵活选择 |
+| **D. 企业 AI 网关** | 企业内部 | 统一协议接入多家模型 | 企业内网环境 |
+
+---
+
+## 方案 A: Cursor Agent 代理（推荐，零额外成本）
+
+通过 llm-proxy 将 OpenClaw 的请求转发给 Cursor Agent CLI，复用企业 Cursor 账号的模型能力。**每月可节省 200U+。**
+
+### 前提条件
+
+- 已安装 Cursor 并登录企业账号
+- 已安装 Cursor Agent CLI（`agent login`）
+
+### 架构
+
+```
+OpenClaw → llm-proxy (localhost:3000) → Cursor Agent CLI → Cursor 企业模型
+```
+
+### 配置步骤
+
+1. 启动 llm-proxy（位于本仓库 `llm-proxy/` 目录）：
+
+```bash
+cd llm-proxy
+# 确认 server.js 中 CONFIG.agentPath 指向本机 agent 路径
+npm start
+```
+
+2. 在 `openclaw.json` 的 `models.providers` 下新增：
+
+```json
+"local-agent-proxy": {
+  "baseUrl": "http://localhost:3000/v1",
+  "apiKey": "not-needed",
+  "api": "openai-completions",
+  "models": [
+    {
+      "id": "opus-4.6",
+      "name": "Claude 4.6 Opus (via Cursor Agent)",
+      "reasoning": false,
+      "input": ["text"],
+      "contextWindow": 128000,
+      "maxTokens": 16384
+    }
+  ]
+}
+```
+
+3. 在 `agents.defaults.model` 下配置：
+
+```json
+{
+  "primary": "local-agent-proxy/opus-4.6"
+}
+```
+
+4. 重启使配置生效：`openclaw gateway restart`
+
+### 可用模型
+
+通过 `agent models` 查询完整列表，常用模型：
+
+| 模型 ID | 说明 |
+|---------|------|
+| `opus-4.6` | Claude 4.6 Opus（默认） |
+| `gpt-5.2` | GPT-5.2 通用 |
+| `sonnet-4.6` | Claude 4.6 Sonnet |
+| `gemini-3-flash` | Gemini 3 Flash（快速） |
+
+### 注意事项
+
+- llm-proxy 需保持运行，建议用 pm2 或 LaunchAgent 守护
+- agent CLI 需已登录（`agent login`）
+- 详见 [llm-proxy README](../llm-proxy/README.md)
+
+---
+
+## 方案 B: 火山引擎（Volcengine / 豆包）
 
 ### Provider 配置
 
@@ -93,11 +178,13 @@ openclaw models fallbacks add doubao/doubao-seed-1-8-251228
 
 详见 [记忆系统](08-memory.md)。
 
-### 国内模型推荐
+### 模型提供商对比
 
 | 模型提供商 | Tool Use 能力 | 性价比 | OpenAI 兼容 |
 |-----------|-------------|--------|-----------|
-| 豆包 Doubao（当前） | 强 | 高 | 是 |
+| **Cursor Agent 代理** | 极强（GPT-5/Claude 4.6） | **零额外成本** | 是（via llm-proxy） |
+| **企业 AI 网关** | 取决于后端模型 | 企业内部统一计费 | 部分兼容（需适配） |
+| 豆包 Doubao | 强 | 高 | 是 |
 | Qwen（通义千问） | 很强 | 高 | 是 |
 | GLM-4（智谱） | 不错 | 极高（有免费额度） | 是 |
 | DeepSeek | 一般 | 极高 | 是 |

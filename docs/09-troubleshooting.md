@@ -11,10 +11,10 @@
 ssh-keygen -t ed25519
 
 # 复制公钥到 Mac
-ssh-copy-id drakgon@192.168.2.2
+ssh-copy-id <username>@<Mac-IP>
 
 # 或手动添加
-ssh drakgon@192.168.2.2 "cat >> ~/.ssh/authorized_keys" < ~/.ssh/id_ed25519.pub
+ssh <username>@<Mac-IP> "cat >> ~/.ssh/authorized_keys" < ~/.ssh/id_ed25519.pub
 ```
 
 ## npm / Node.js 相关
@@ -83,7 +83,7 @@ Mac 和 iPhone 使用同一 Apple ID 导致消息回环。
 python3 -c "
 import json
 with open('$HOME/.openclaw/openclaw.json') as f: d=json.load(f)
-d['gateway']['controlUi']['allowedOrigins'].append('http://192.168.2.2:18789')
+d['gateway']['controlUi']['allowedOrigins'].append('http://<Mac-IP>:18789')
 with open('$HOME/.openclaw/openclaw.json','w') as f: json.dump(d,f,indent=2)
 "
 openclaw gateway restart

@@ -24,7 +24,7 @@ OpenClaw 通过内置的 iMessage 插件和 `imsg` CLI 工具与 macOS Messages.
 {
   "enabled": true,
   "cliPath": "/usr/local/bin/imsg",
-  "dbPath": "/Users/drakgon/Library/Messages/chat.db",
+  "dbPath": "~/Library/Messages/chat.db",
   "service": "auto",
   "dmPolicy": "pairing",
   "groupPolicy": "allowlist"

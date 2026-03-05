@@ -63,7 +63,7 @@
         "doubao/doubao-1.5-lite-32k-250115": {},
         "doubao/doubao-seed-1-8-251228": {}
       },
-      "workspace": "/Users/drakgon/clawd",
+      "workspace": "~/clawd",
       "compaction": { "mode": "safeguard" },
       "heartbeat": {
         "every": "30m",
@@ -106,7 +106,7 @@
     "imessage": {
       "enabled": true,
       "cliPath": "/usr/local/bin/imsg",
-      "dbPath": "/Users/drakgon/Library/Messages/chat.db",
+      "dbPath": "~/Library/Messages/chat.db",
       "service": "auto",
       "dmPolicy": "pairing",
       "groupPolicy": "allowlist"
@@ -120,7 +120,7 @@
       "allowedOrigins": [
         "http://localhost:18789",
         "http://127.0.0.1:18789",
-        "http://192.168.2.2:18789"
+        "http://<Mac-IP>:18789"
       ]
     },
     "auth": {
@@ -150,7 +150,7 @@
 {
   "mcpServers": {
     "game-character": {
-      "baseUrl": "http://192.168.2.63:9884/mcp"
+      "baseUrl": "http://<Windows-IP>:9884/mcp"
     }
   }
 }

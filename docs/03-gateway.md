@@ -13,7 +13,7 @@
     "allowedOrigins": [
       "http://localhost:18789",
       "http://127.0.0.1:18789",
-      "http://192.168.2.2:18789"
+      "http://<Mac-IP>:18789"
     ]
   },
   "auth": {
@@ -44,7 +44,7 @@
 
 ### 为什么设置 `bind: "lan"`
 
-默认 `bind` 为 `loopback`，只允许本机访问。设为 `lan` 后允许同局域网的 Windows 主机（192.168.2.63）通过浏览器访问 Dashboard。
+默认 `bind` 为 `loopback`，只允许本机访问。设为 `lan` 后允许同局域网的其他主机通过浏览器访问 Dashboard。
 
 ## Dashboard 访问
 
@@ -58,19 +58,19 @@ openclaw dashboard
 
 Dashboard URL 格式：
 ```
-http://192.168.2.2:18789/?token=<gateway-token>
+http://<Mac-IP>:18789/?token=<gateway-token>
 ```
 
-### 从 Windows 远程访问
+### 从其他主机远程访问
 
 方式一：直接访问（需要 `bind: "lan"` + `allowedOrigins` 包含 Mac IP）
 ```
-http://192.168.2.2:18789/?token=<token>
+http://<Mac-IP>:18789/?token=<token>
 ```
 
 方式二：SSH 端口转发
 ```bash
-ssh -L 18789:127.0.0.1:18789 drakgon@192.168.2.2
+ssh -L 18789:127.0.0.1:18789 <username>@<Mac-IP>
 # 然后在 Windows 浏览器访问 http://127.0.0.1:18789
 ```
 

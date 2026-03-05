@@ -78,8 +78,8 @@ ollama pull all-minilm       # 最小，~45MB
 通过 Python 脚本修改配置：
 
 ```python
-import json
-p = "/Users/drakgon/.openclaw/openclaw.json"
+import json, os
+p = os.path.expanduser("~/.openclaw/openclaw.json")
 with open(p, "r") as f:
     c = json.load(f)
 c["agents"]["defaults"]["memorySearch"] = {

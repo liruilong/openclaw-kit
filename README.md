@@ -1,25 +1,29 @@
 # OpenClaw 配置说明文档
 
-本项目记录了 OpenClaw AI 助手在 Mac (192.168.2.2) 上的完整配置过程与说明。
+本项目记录了 OpenClaw AI 助手的完整配置过程与说明。
 
 ## 环境概览
 
 | 项目 | 值 |
 |------|------|
-| Mac 主机 | `192.168.2.2`（用户 `drakgon`） |
-| Windows 主机 | `192.168.2.63` |
+| Mac 主机 | `<Mac-IP>`（用户 `<username>`） |
+| Windows 主机 | `<Windows-IP>` |
 | OpenClaw 版本 | 2026.3.1 |
 | Node.js 版本 | v24.13.0 |
 | macOS 架构 | Intel x86_64 |
 | 配置文件 | `~/.openclaw/openclaw.json` |
 | Agent 工作区 | `~/clawd/` |
 | Gateway 端口 | 18789 |
-| Dashboard | `http://192.168.2.2:18789` |
+| Dashboard | `http://<Mac-IP>:18789` |
+
+## 工具
+
+- **[llm-proxy](llm-proxy/)** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API 的代理服务，复用企业 Cursor 模型能力，零额外成本
 
 ## 文档目录
 
 - [安装与迁移](docs/01-installation.md)
-- [模型配置](docs/02-models.md)
+- [模型配置](docs/02-models.md)（含 Cursor Agent 代理、火山引擎豆包等多种方案）
 - [Gateway 与 Dashboard](docs/03-gateway.md)
 - [iMessage 频道配置](docs/04-imessage.md)
 - [TTS 语音合成](docs/05-tts.md)

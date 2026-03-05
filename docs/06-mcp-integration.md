@@ -2,118 +2,106 @@
 
 ## 概述
 
-通过 Model Context Protocol (MCP) 的 HTTP transport，OpenClaw 可以远程调用 Windows 桌面上的 Game Character MCP 服务，实现语音通知、角色动画等功能。
+通过 Model Context Protocol (MCP) 的 HTTP transport，OpenClaw 可以远程调用局域网内其他主机上的 MCP 服务，扩展 Agent 的工具能力（如文件操作、数据库查询、消息通知等）。
 
 ## 架构
 
 ```
-┌─────────────────────┐        HTTP (port 9884)        ┌──────────────────────┐
-│   Mac (192.168.2.2) │  ─────────────────────────────→ │ Windows (192.168.2.63)│
-│   OpenClaw Agent    │                                 │ Game Character MCP   │
-│   (via mcporter)    │  ←───────────────────────────── │ + TTS + WebSocket    │
-└─────────────────────┘        JSON-RPC Response        └──────────────────────┘
+┌─────────────────────┐      HTTP (Streamable HTTP)      ┌──────────────────────┐
+│   OpenClaw 主机      │  ─────────────────────────────→  │  远程 MCP 服务主机    │
+│   (via mcporter)    │                                   │  (任意 MCP Server)   │
+│                     │  ←─────────────────────────────   │                      │
+└─────────────────────┘       JSON-RPC Response           └──────────────────────┘
 ```
 
-## Windows 端配置
+## 远程 MCP 服务端要求
 
-### MCP 服务器
+MCP 服务需同时支持 Streamable HTTP transport，监听一个 HTTP 端口供远程调用：
 
-项目路径：`F:\Document\WorkSpace\game-character-mcp`
+```javascript
+// 示例：同时提供 Stdio + HTTP 两种 transport
+const server = new McpServer({ name: "my-service", version: "1.0.0" });
 
-`index.ts` 同时提供两种 transport：
-1. **Stdio** — 供 Cursor IDE 直接使用
-2. **Streamable HTTP** — 监听 `0.0.0.0:9884/mcp`，供远程客户端使用
+// Stdio（供本地 Cursor IDE 使用）
+const stdioTransport = new StdioServerTransport();
+await server.connect(stdioTransport);
 
-Cursor MCP 配置（`.cursor/mcp.json`）：
-
-```json
-{
-  "mcpServers": {
-    "game-character": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "env": {
-        "MCP_HTTP_PORT": "9884",
-        "TTS_BACKEND": "volcano",
-        ...
-      }
-    }
-  }
-}
+// HTTP（供远程 OpenClaw 使用）
+const httpTransport = new StreamableHTTPServerTransport({ endpoint: "/mcp" });
+app.use("/mcp", httpTransport.requestHandler);
+app.listen(Number(process.env.MCP_HTTP_PORT) || 9884);
 ```
 
-### 提供的工具
+确保：
+- 防火墙允许对应端口入站
+- 两台主机在同一局域网（或通过 VPN/SSH 隧道连通）
 
-| 工具 | 说明 |
-|------|------|
-| `character_speak` | 让桌面角色用语音说话（支持情绪动画） |
-| `character_animate` | 触发角色动画（无语音） |
-| `tts_synthesize` | 合成语音音频文件 |
-| `get_status` | 检查 TTS 和连接状态 |
+## OpenClaw 端配置（mcporter）
 
-### 支持的情绪
-
-Happy, Confused, Sad, Fun, Agree, Drink, Wave, Think
-
-### 支持的语言
-
-ja（日语）, zh（中文）, en（英语）, ko（韩语）, yue（粤语）
-
-## Mac 端配置（OpenClaw）
-
-### mcporter 配置
-
-配置文件：`~/.mcporter/mcporter.json`
-
-```json
-{
-  "mcpServers": {
-    "game-character": {
-      "baseUrl": "http://192.168.2.63:9884/mcp"
-    }
-  }
-}
-```
-
-添加命令：
+### 添加远程服务
 
 ```bash
-npx mcporter config add game-character --url http://192.168.2.63:9884/mcp --scope home
+npx mcporter config add <service-name> --url http://<remote-host>:<port>/mcp --scope home
+```
+
+配置文件位于 `~/.mcporter/mcporter.json`：
+
+```json
+{
+  "mcpServers": {
+    "<service-name>": {
+      "baseUrl": "http://<remote-host>:<port>/mcp"
+    }
+  }
+}
 ```
 
 ### 验证连接
 
 ```bash
 # 列出远程工具
-npx mcporter list game-character --schema
+npx mcporter list <service-name> --schema
 
 # 调用工具
-npx mcporter call game-character.get_status
-npx mcporter call game-character.character_speak text="你好" lang=zh emotion=Happy
+npx mcporter call <service-name>.<tool-name> param1="value1" param2="value2"
 ```
 
-## Agent 工作区规则
+## Agent 工作区配置
 
-在 `~/clawd/TOOLS.md` 中记录了工具信息，在 `~/clawd/AGENTS.md` 中添加了通知规则：
+在 `~/clawd/` 下的文件中告知 Agent 可用的远程工具：
 
-**通知规则**：当 OpenClaw 需要通知用户（任务完成、需要决策、遇到错误等）时，除了发 iMessage，还通过 `character_speak` 在 Windows 桌面上语音通知。
+### TOOLS.md
+
+记录工具调用方式和参数：
+
+```markdown
+## 远程 MCP 工具
+
+### <service-name>
 
 调用方式：
+\`\`\`bash
+npx mcporter call <service-name>.<tool-name> param1="value1"
+\`\`\`
 
-```bash
-npx mcporter call game-character.character_speak text="通知内容" lang=zh emotion=Happy
+可用工具：
+- `tool_a` — 功能描述
+- `tool_b` — 功能描述
 ```
 
-情绪选择指南：
-- **Happy** — 任务完成、好消息
-- **Think** — 需要决策
-- **Confused** — 遇到问题
-- **Wave** — 打招呼
-- **Sad** — 出错失败
-- **Agree** — 确认
+### AGENTS.md
+
+添加使用规则，例如何时调用、参数选择指南等：
+
+```markdown
+## 工具使用规则
+
+- 需要通知用户时，通过 `<service-name>.<notify-tool>` 发送通知
+- 查询数据时，优先使用 `<service-name>.<query-tool>`
+```
 
 ## 前提条件
 
-- Windows 防火墙允许 9884 端口入站（测试中自动通过）
-- Cursor IDE 的 MCP 进程需要运行中（它会同时启动 HTTP 端点）
-- Mac 和 Windows 在同一局域网
+- 远程主机上的 MCP 服务需保持运行
+- 防火墙允许对应端口入站
+- OpenClaw 主机与远程主机网络可达

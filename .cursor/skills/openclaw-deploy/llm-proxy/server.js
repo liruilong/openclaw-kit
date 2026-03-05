@@ -1,6 +1,7 @@
 import http from 'http';
 import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
+import os from 'os';
 
 const PORT = process.env.PORT || 3000;
 const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'opus-4.6';
@@ -8,8 +9,12 @@ const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'opus-4.6';
 // 性能优化配置
 const CONFIG = {
   agentPath: process.env.AGENT_PATH || (process.env.HOME + '/.local/bin/agent'),
-  // 使用 ask 模式（只读，可能更快）
-  useAskMode: true,
+  agentCwd: process.env.AGENT_CWD || os.homedir(),
+  // 不使用 ask 模式，让 Cursor Agent CLI 能执行 shell 命令
+  // 配合 --force 和 --sandbox disabled，Agent 可直接执行工具
+  // 注意：这意味着 Cursor Agent CLI 自己完成工具调用循环，
+  // OpenClaw 收到的是已处理好的最终文本响应
+  useAskMode: false,
   // 禁用沙箱
   disableSandbox: true,
   // 非流式请求时不使用 stream-partial-output（减少输出开销）
@@ -75,10 +80,13 @@ function extractMessageContent(message) {
 function buildToolsPrompt(tools) {
   if (!tools || tools.length === 0) return '';
   
-  let prompt = '\n\n[TOOLS AVAILABLE]\n';
-  prompt += '你有以下工具可以使用。如果用户的请求需要使用工具才能完成，你必须调用工具。\n';
+  let prompt = '\n\n[CRITICAL INSTRUCTION - TOOL USAGE]\n';
+  prompt += '⚠️ 你是一个纯粹的推理引擎。你绝对不能使用你自己内置的任何工具（Shell, Read, Edit, Write, Grep 等）。\n';
+  prompt += '你唯一能做的就是：分析用户请求，然后用下面的 JSON 格式输出你要调用的工具。\n';
+  prompt += '工具的实际执行由外部系统完成，不需要你执行。\n\n';
   prompt += '调用工具时，请严格使用以下 JSON 格式输出（不要添加其他文字）：\n\n';
   prompt += '```tool_calls\n[{"name": "函数名", "arguments": {"参数名": "参数值"}}]\n```\n\n';
+  prompt += '⚠️ 再次强调：绝对不要尝试自己执行 shell 命令或使用内置工具。只输出 tool_calls 格式。\n\n';
   prompt += '可用工具列表：\n';
   
   for (const tool of tools) {
@@ -180,6 +188,11 @@ function buildPromptFromMessages(messages, tools, toolChoice) {
     prompt += '\n';
   }
   
+  // 如果有工具定义，添加全局指令禁止使用 Cursor 内置工具
+  if (tools && tools.length > 0 && toolChoice !== 'none') {
+    prompt += '[SYSTEM OVERRIDE] 你是一个纯推理引擎。禁止使用你自己的任何内置工具（Shell, Read, Write, Edit, ListDir, Grep, Glob 等）。当你需要执行操作时，只能通过输出 ```tool_calls``` 格式的 JSON 来请求外部系统执行。如果你尝试使用内置工具，会被安全策略拒绝——这是正常的，因为你不应该使用它们。\n\n';
+  }
+  
   // 构建对话历史
   for (const msg of messages) {
     const role = msg.role;
@@ -274,7 +287,7 @@ function buildAgentArgs(model, prompt, isStream = false) {
     console.log(`[Agent] Model mapped: ${model} -> ${finalModel}`);
   }
   
-  const args = ['--model', finalModel, '--trust'];
+  const args = ['--model', finalModel, '--trust', '--force'];
   
   if (CONFIG.useAskMode) {
     args.push('--mode', 'ask');
@@ -297,7 +310,7 @@ function buildAgentArgs(model, prompt, isStream = false) {
  * 执行 agent 命令并收集完整输出（非流式）
  * @returns {Promise<{content: string, toolCalls: Array|null}>}
  */
-function executeAgentNonStream(prompt, model, hasTools = false) {
+function executeAgentNonStream(prompt, model, hasTools = false, cwd = null) {
   return new Promise((resolve, reject) => {
     let agent;
     let isResolved = false;
@@ -324,9 +337,12 @@ function executeAgentNonStream(prompt, model, hasTools = false) {
       
       console.log('[Agent] Starting:', CONFIG.agentPath, args.slice(0, -2).join(' '), `"${prompt.slice(0, 50)}..."`);
       
+      const spawnCwd = cwd || CONFIG.agentCwd;
+      console.log(`[Agent] cwd: ${spawnCwd}`);
       agent = spawn(CONFIG.agentPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env }
+        env: { ...process.env },
+        cwd: spawnCwd
       });
       
       // 立即关闭 stdin，防止 agent 等待输入
@@ -458,7 +474,7 @@ function buildStreamToolCallChunk(toolCall, index, model, chatId, isFirst = fals
 /**
  * 执行 agent 命令并流式输出
  */
-function executeAgentStream(prompt, model, res, chatId, hasTools = false) {
+function executeAgentStream(prompt, model, res, chatId, hasTools = false, cwd = null) {
   return new Promise((resolve, reject) => {
     let agent;
     let isResolved = false;
@@ -493,9 +509,12 @@ function executeAgentStream(prompt, model, res, chatId, hasTools = false) {
       
       console.log('[Agent] Starting stream:', CONFIG.agentPath, args.slice(0, -2).join(' '), `"${prompt.slice(0, 50)}..."`);
       
+      const spawnCwd = cwd || CONFIG.agentCwd;
+      console.log(`[Agent Stream] cwd: ${spawnCwd}`);
       agent = spawn(CONFIG.agentPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env }
+        env: { ...process.env },
+        cwd: spawnCwd
       });
       
       // 立即关闭 stdin，防止 agent 等待输入
@@ -658,7 +677,8 @@ async function handleChatCompletions(req, res) {
       model = DEFAULT_MODEL, 
       stream = false,
       tools = null,
-      tool_choice = 'auto'
+      tool_choice = 'auto',
+      cwd = null
     } = body;
     
     // 构建完整的 prompt（包含 tools 定义和对话历史）
@@ -676,7 +696,7 @@ async function handleChatCompletions(req, res) {
     }
     
     const hasTools = tools && tools.length > 0 && tool_choice !== 'none';
-    console.log(`[${new Date().toISOString()}] Request: model=${model}, stream=${stream}, tools=${hasTools ? tools.length : 0}, prompt="${prompt.slice(0, 80)}..."`);
+    console.log(`[${new Date().toISOString()}] Request: model=${model}, stream=${stream}, tools=${hasTools ? tools.length : 0}, cwd=${cwd || '(default)'}, prompt="${prompt.slice(0, 80)}..."`);
     
     if (stream) {
       // 流式响应
@@ -688,10 +708,10 @@ async function handleChatCompletions(req, res) {
       });
       
       const chatId = generateChatId();
-      await executeAgentStream(prompt, model, res, chatId, hasTools);
+      await executeAgentStream(prompt, model, res, chatId, hasTools, cwd);
     } else {
       // 非流式响应
-      const { content, toolCalls } = await executeAgentNonStream(prompt, model, hasTools);
+      const { content, toolCalls } = await executeAgentNonStream(prompt, model, hasTools, cwd);
       const response = buildNonStreamResponse(content, model, toolCalls);
       
       res.writeHead(200, {
@@ -810,6 +830,8 @@ server.listen(PORT, () => {
 ╠════════════════════════════════════════════════════════╣
 ║  Server: http://localhost:${String(PORT).padEnd(29)}║
 ║  Model:  ${DEFAULT_MODEL.padEnd(45)}║
+╠════════════════════════════════════════════════════════╣
+║  Agent CWD: ${CONFIG.agentCwd.padEnd(42)}║
 ╠════════════════════════════════════════════════════════╣
 ║  Performance Options:                                  ║
 ║    USE_ASK_MODE=${String(CONFIG.useAskMode).padEnd(39)}║

@@ -1,6 +1,6 @@
 # OpenClaw 配置说明文档
 
-本项目记录了 OpenClaw AI 助手的完整配置过程与说明。
+本项目记录了 OpenClaw AI 助手的完整配置过程与说明。可使用 Cursor 辅助你进行轻松配置。
 
 ## 环境概览
 

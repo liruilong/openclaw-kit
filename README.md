@@ -31,4 +31,5 @@
 - [Agent 人格与规则](docs/07-agent-persona.md)
 - [记忆系统](docs/08-memory.md)
 - [常见问题与故障排查](docs/09-troubleshooting.md)
+- [优化实践](docs/10-optimization-tips.md)
 - [当前配置快照](docs/99-config-snapshot.md)

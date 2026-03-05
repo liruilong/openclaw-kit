@@ -136,6 +136,35 @@ OpenClaw Gateway → cursor-proxy ACP (localhost:18790) → agent acp (常驻进
 
 心跳配置了 `"session": "heartbeat"`，运行在独立 session 中，不会覆盖 webchat 主会话的标签。
 
+### mcporter 配置（非编码 MCP）
+
+mcporter 管理不经过 Cursor IDE 的通用 MCP 工具，配置文件位于 `~/.mcporter/mcporter.json`：
+
+```json
+{
+  "mcpServers": {
+    "homeassistant": {
+      "baseUrl": "http://<HA-IP>:8123/mcp_server/sse"
+    },
+    "game-character": {
+      "baseUrl": "http://<Windows-IP>:9884/mcp"
+    }
+  }
+}
+```
+
+项目级配置（优先级更高）位于 `<workspace>/.mcporter/servers.json`。
+
+### 禁用的内置 Skill
+
+以下内置 skill 已手动禁用（通过 OpenClaw Dashboard 或配置文件），以减少不必要的 token 消耗：
+
+| Skill | 禁用原因 |
+|-------|---------|
+| `gemini` | 不使用 Gemini 模型 |
+| `openai-image-gen` | 暂不需要图片生成 |
+| `weather` | 暂不需要天气查询 |
+
 ### 历史方案（已弃用）
 
 - **llm-proxy**（spawn 模式）：每次请求 spawn 新 `agent -p` 进程，13-27 秒延迟，已被 ACP 模式替代

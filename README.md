@@ -18,7 +18,7 @@
 
 ## 工具
 
-- **[llm-proxy](llm-proxy/)** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API 的代理服务，复用企业 Cursor 模型能力，零额外成本
+- **[cursor-proxy](cursor-proxy/)** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API 的 ACP 代理服务（常驻进程，2-3秒响应），复用 Cursor 订阅模型，零额外成本
 
 ## 文档目录
 

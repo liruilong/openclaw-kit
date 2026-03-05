@@ -1,6 +1,6 @@
 # 当前配置快照
 
-> 截取于 2026-03-05，已切换至 llm-proxy（Cursor Agent 代理）方案
+> 截取于 2026-03-06，已升级至 cursor-proxy ACP 模式（常驻进程，2-3秒响应）
 
 ## openclaw.json
 
@@ -8,20 +8,14 @@
 {
   "meta": {
     "lastTouchedVersion": "2026.3.2",
-    "lastTouchedAt": "2026-03-05T13:25:06.017Z"
-  },
-  "wizard": {
-    "lastRunAt": "2026-03-05T13:25:06.013Z",
-    "lastRunVersion": "2026.3.2",
-    "lastRunCommand": "onboard",
-    "lastRunMode": "local"
+    "lastTouchedAt": "2026-03-06T00:15:00.000Z"
   },
   "models": {
     "mode": "merge",
     "providers": {
-      "local-agent-proxy": {
-        "baseUrl": "http://127.0.0.1:3000/v1",
-        "apiKey": "not-needed",
+      "cursor-local": {
+        "baseUrl": "http://127.0.0.1:18790/v1",
+        "apiKey": "local",
         "api": "openai-completions",
         "models": [
           {
@@ -33,8 +27,8 @@
             "maxTokens": 16384
           },
           {
-            "id": "gpt-5.2",
-            "name": "Cursor Agent (GPT 5.2)",
+            "id": "sonnet-4.6",
+            "name": "Cursor Agent (Sonnet 4.6)",
             "reasoning": false,
             "input": ["text"],
             "contextWindow": 128000,
@@ -42,19 +36,22 @@
           }
         ]
       },
-      "ollama": {
-        "baseUrl": "http://127.0.0.1:11434",
-        "apiKey": "ollama",
-        "api": "ollama",
+      "doubao": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+        "apiKey": "***",
+        "api": "openai-responses",
         "models": [
-          {
-            "id": "qwen2.5:3b",
-            "name": "Qwen 2.5 3B (本地)",
-            "reasoning": false,
-            "input": ["text"],
-            "contextWindow": 32768,
-            "maxTokens": 4096
-          }
+          { "id": "doubao-seed-2-0-pro-260215", "name": "豆包 2.0 Pro" },
+          { "id": "doubao-seed-2-0-lite-260215", "name": "豆包 2.0 Lite" }
+        ]
+      },
+      "ollama": {
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "apiKey": "ollama",
+        "api": "openai-responses",
+        "models": [
+          { "id": "qwen2:1.5b", "name": "Qwen2 1.5B" },
+          { "id": "nomic-embed-text", "name": "Nomic Embed" }
         ]
       }
     }
@@ -62,10 +59,10 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "local-agent-proxy/opus-4.6"
+        "primary": "cursor-local/opus-4.6",
+        "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
       },
       "workspace": "~/clawd",
-      "bootstrapMaxChars": 50000,
       "memorySearch": {
         "provider": "openai",
         "remote": {
@@ -74,79 +71,39 @@
         },
         "model": "nomic-embed-text"
       },
-      "compaction": {
-        "mode": "safeguard"
-      },
+      "compaction": { "mode": "safeguard" },
       "heartbeat": {
-        "model": "ollama/qwen2.5:3b",
+        "model": "ollama/qwen2:1.5b",
         "lightContext": true,
         "session": "heartbeat"
       },
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8,
-        "model": "local-agent-proxy/opus-4.6"
+        "model": "cursor-local/opus-4.6"
       }
     }
   },
   "tools": {
-    "profile": "messaging"
+    "profile": "full"
   },
-  "commands": {
-    "native": "auto",
-    "nativeSkills": "auto",
-    "restart": true,
-    "ownerDisplay": "raw"
-  },
-  "session": {
-    "dmScope": "per-channel-peer"
-  },
-  "channels": {
-    "agentspace": {
-      "accounts": {
-        "default": {
-          "enabled": true,
-          "wps_sid": "***",
-          "currentUser": "***",
-          "device_uuid": "***"
+  "plugins": {
+    "entries": {
+      "openclaw-cursor-brain": {
+        "enabled": true,
+        "config": {
+          "model": "opus-4.6",
+          "fallbackModel": "sonnet-4.6"
         }
-      },
-      "dmPolicy": "open",
-      "allowFrom": ["*"]
+      }
     }
   },
   "gateway": {
     "port": 18789,
     "mode": "local",
-    "bind": "loopback",
-    "controlUi": {
-      "allowedOrigins": [
-        "http://localhost:18789",
-        "http://127.0.0.1:18789"
-      ]
-    },
-    "auth": {
-      "mode": "token",
-      "token": "***"
-    },
-    "tailscale": {
-      "mode": "off",
-      "resetOnExit": false
-    },
-    "http": {
-      "endpoints": {
-        "chatCompletions": {
-          "enabled": true
-        }
-      }
-    }
-  },
-  "plugins": {
-    "entries": {
-      "agentspace": {
-        "enabled": true
-      }
-    }
+    "bind": "lan",
+    "auth": { "mode": "token", "token": "***" },
+    "http": { "endpoints": { "chatCompletions": { "enabled": true } } }
   }
 }
 ```
@@ -156,25 +113,30 @@
 ### 模型架构
 
 ```
-OpenClaw Gateway → llm-proxy (localhost:3000) → Cursor Agent CLI → 企业 Cursor 模型
-                → Ollama (localhost:11434) → Qwen 2.5 3B（心跳专用）
+OpenClaw Gateway → cursor-proxy ACP (localhost:18790) → agent acp (常驻进程) → Cursor 订阅模型
+                → Ollama (localhost:11434) → Qwen2 1.5B（心跳专用）
+                → 豆包 Pro（fallback）
 ```
 
-- **主模型**：`local-agent-proxy/opus-4.6`（通过 llm-proxy 代理 Cursor Agent CLI）
-- **心跳模型**：`ollama/qwen2.5:3b`（本地运行，独立 session，避免干扰主对话）
+- **主模型**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
+- **Fallback**：`doubao/doubao-seed-2-0-pro-260215`（ACP proxy 不可用时兜底）
+- **心跳模型**：`ollama/qwen2:1.5b`（本地运行，独立 session）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
 
-### llm-proxy 配置要点
+### cursor-proxy ACP 模式要点
 
-- `useAskMode: false` — Agent 自主执行工具，llm-proxy 只等待最终结果
-- `disableSandbox: true` — 允许 Agent 执行 Shell 命令
-- 流式输出时只发送 `result`，不发送中间 `assistant` 消息，避免重复文本
-- 详见 [llm-proxy README](../llm-proxy/README.md)
+- `agent acp` 作为常驻子进程运行，通过 JSON-RPC 2.0 通信
+- 后续请求 2-3 秒响应（旧 llm-proxy spawn 模式需 13-27 秒）
+- `session/request_permission` 自动 approve-always
+- 崩溃自动重启（2秒延迟）
+- 由 `openclaw-cursor-brain` 插件自动管理生命周期
+- 详见 [cursor-proxy README](../cursor-proxy/README.md)
 
 ### 心跳隔离
 
 心跳配置了 `"session": "heartbeat"`，运行在独立 session 中，不会覆盖 webchat 主会话的标签。
 
-### CLI Backend（已弃用）
+### 历史方案（已弃用）
 
-之前尝试过 `cliBackends` 直接集成 Cursor Agent CLI，但存在 transcript 持久化问题（OpenClaw Gateway 无法正确解析 CLI 的 `--output-format json` 输出中的 `init` 事件），导致新消息在刷新后丢失。已切回 llm-proxy 方案。
+- **llm-proxy**（spawn 模式）：每次请求 spawn 新 `agent -p` 进程，13-27 秒延迟，已被 ACP 模式替代
+- **cliBackends**：OpenClaw 原生 CLI Backend，存在 transcript 持久化问题，已弃用

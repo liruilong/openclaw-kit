@@ -48,9 +48,9 @@ openclaw onboard   # 交互式向导，需用户在终端中手动操作
 
 提供以下方案，向用户说明后让其选择。
 
-### 方案 A: Cursor Agent CLI Backend（推荐，零额外成本）
+### 方案 A: Cursor Agent ACP 代理（推荐，零额外成本）
 
-复用企业 Cursor 账号的模型能力，通过 OpenClaw 原生 CLI Backend 机制直接调用 Cursor Agent CLI。**无需额外代理进程、无需 API Key，每月节省 200U+。**
+通过 `openclaw-cursor-brain` 插件，以 **ACP 常驻进程模式**使用 Cursor 订阅的顶级模型。**零额外费用，后续请求 2-3 秒响应，每月节省 200U+。**
 
 #### A.1 安装并登录 Cursor Agent CLI
 
@@ -62,47 +62,77 @@ curl https://cursor.com/install -fsS | bash
 # 登录
 agent login
 # 验证可用模型
-agent models
+agent --list-models
 ```
 
-#### A.2 配置 CLI Backend
-
-在 `~/.openclaw/openclaw.json` 中配置 `cliBackends` 和默认模型。
+#### A.2 安装 openclaw-cursor-brain 插件
 
 ```bash
-# 获取 agent 路径
-AGENT_PATH=$(which agent)
+# 先 export Keychain 密钥（openclaw CLI 不自动加载）
+export VOLCENGINE_API_KEY=$(security find-generic-password -a "openclaw" -s "VOLCENGINE_API_KEY" -w)
+export OPENCLAW_GATEWAY_TOKEN=$(security find-generic-password -a "openclaw" -s "OPENCLAW_GATEWAY_TOKEN" -w)
 
-# 配置 CLI Backend
-openclaw config set agents.defaults.cliBackends "{\"cursor-cli\":{\"command\":\"$AGENT_PATH\",\"args\":[\"-p\",\"--output-format\",\"stream-json\",\"--sandbox\",\"disabled\",\"--trust\",\"--force\"],\"output\":\"jsonl\",\"modelArg\":\"--model\",\"sessionMode\":\"none\"}}"
-
-# 设置主模型
-openclaw config set agents.defaults.model.primary "cursor-cli/opus-4.6"
-
-# 设置子代理模型
-openclaw config set agents.defaults.subagents.model "cursor-cli/opus-4.6"
+# 安装插件
+openclaw plugins install openclaw-cursor-brain
 
 # 重启 Gateway
 openclaw gateway restart
 ```
 
-> OpenClaw 的 CLI Backend 是官方支持的机制，不需要额外的代理进程。Cursor Agent CLI 直接被 Gateway 调用，输出通过 JSONL 格式解析。
+插件自动完成：
+- 启动 ACP proxy（`agent acp` 常驻进程，`http://127.0.0.1:18790/v1`）
+- 注册 `cursor-local` provider
+- 管理 proxy 生命周期（崩溃自动重启）
+
+#### A.3 配置模型
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "cursor-local/opus-4.6",
+        "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
+      },
+      "subagents": {
+        "model": "cursor-local/opus-4.6"
+      }
+    }
+  },
+  "plugins": {
+    "entries": {
+      "openclaw-cursor-brain": {
+        "enabled": true,
+        "config": {
+          "model": "opus-4.6",
+          "fallbackModel": "sonnet-4.6"
+        }
+      }
+    }
+  }
+}
+```
 
 **推荐多角色模型分配**：
 
 | 角色 | 配置路径 | 推荐模型 | 理由 |
 |------|---------|---------|------|
-| 对话（主模型） | `agents.defaults.model` | `cursor-cli/opus-4.6` | 面对用户，质量优先 |
-| 开发（子代理） | `agents.defaults.subagents.model` | `cursor-cli/opus-4.6` | 代码质量优先（走订阅无额外成本） |
+| 对话（主模型） | `agents.defaults.model` | `cursor-local/opus-4.6` | 面对用户，质量优先 |
+| 开发（子代理） | `agents.defaults.subagents.model` | `cursor-local/opus-4.6` | 代码质量优先（走订阅无额外成本） |
 | 心跳（定时检查） | `agents.defaults.heartbeat.model` | `ollama/qwen2.5:3b` | 本地模型，零成本 |
 
 验证：
 
 ```bash
+# 检查 ACP proxy 状态
+curl -sf http://127.0.0.1:18790/v1/health
+# 应返回 "mode": "acp", "acp": { "running": true }
+
+# 测试模型响应
 openclaw agent --agent main --message "你好" --json
 ```
 
-常用模型（通过 `agent models` 查询完整列表）：
+常用模型（通过 `agent --list-models` 查询完整列表）：
 
 | 模型 ID | 说明 |
 |---------|------|
@@ -110,6 +140,9 @@ openclaw agent --agent main --message "你好" --json
 | `gpt-5.2` | GPT-5.2 通用 |
 | `sonnet-4.6` | Claude 4.6 Sonnet |
 | `gemini-3-flash` | Gemini 3 Flash（快速） |
+
+> **ACP vs 旧 llm-proxy**：旧方案每次 spawn 新进程（13-27秒），ACP 模式使用常驻子进程（2-3秒）。
+> 独立运行 cursor-proxy 详见 [cursor-proxy README](../../cursor-proxy/README.md)。
 
 ### 方案 B: 火山引擎（豆包 Doubao）
 
@@ -602,7 +635,7 @@ ollama pull qwen2.5:3b
 
 如果同时拥有模型提供商的订阅和 API 配额（如 OpenAI Plus/Pro 订阅、Cursor 企业订阅），优先通过订阅通道使用，避免 API 按量计费导致账单暴涨。
 
-本 skill 的方案 A（Cursor Agent CLI Backend）就是这一策略的实践——通过 OpenClaw 原生 CLI Backend 复用 Cursor 企业订阅的模型能力，对话和开发任务都不额外计费。
+本 skill 的方案 A（Cursor Agent ACP 代理）就是这一策略的实践——通过 ACP 常驻进程复用 Cursor 订阅的模型能力，对话和开发任务都不额外计费。
 
 ### 优化四：生成成本体检报告
 

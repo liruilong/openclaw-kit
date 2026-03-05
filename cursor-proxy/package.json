@@ -1,0 +1,11 @@
+{
+  "name": "cursor-acp-proxy",
+  "version": "2.0.0",
+  "description": "Cursor Agent ACP proxy — persistent subprocess, zero cold start, OpenAI-compatible API",
+  "main": "streaming-proxy.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node streaming-proxy.mjs",
+    "dev": "node --watch streaming-proxy.mjs"
+  }
+}

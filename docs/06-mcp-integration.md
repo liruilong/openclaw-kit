@@ -49,7 +49,70 @@ app.listen(Number(process.env.MCP_HTTP_PORT) || 9884);
 - 防火墙允许对应端口入站
 - 两台主机在同一局域网（或通过 VPN/SSH 隧道连通）
 
-## OpenClaw 端配置（mcporter）
+## OpenClaw MCP 配置文件
+
+OpenClaw 工作区内可通过 `~/.openclaw/mcp.json` 维护 MCP 服务列表，格式与 mcporter 兼容。
+
+### 文件位置
+
+```
+~/.openclaw/mcp.json
+```
+
+### 服务类型
+
+**1. HTTP 类 MCP 服务**（如 kad 知识库）
+
+```json
+{
+  "mcpServers": {
+    "kad": {
+      "baseUrl": "http://<mcp-endpoint>/sse",
+      "headers": {
+        "cookie": "wps_sid=xxx;kso_sid=yyy"
+      }
+    }
+  }
+}
+```
+
+**2. STDIO 类 MCP 服务**（本地进程）
+
+```json
+{
+  "mcpServers": {
+    "my-tool": {
+      "command": "npx",
+      "args": ["-y", "my-mcp-server"],
+      "env": {
+        "API_KEY": "从环境变量获取"
+      }
+    }
+  }
+}
+```
+
+### cookie 获取（以 kad 知识库为例）
+
+1. 浏览器登录 [金山文档](https://www.kdocs.cn)
+2. 开发者工具 → Application → Cookies
+3. 复制 `wps_sid`、`kso_sid` 的值
+4. 在 `headers.cookie` 中填写：`wps_sid=xxx;kso_sid=yyy`
+
+### 与 mcporter 的关系
+
+OpenClaw 通过 **mcporter** skill 调用 MCP，mcporter 默认读取 `~/.mcporter/mcporter.json`。可通过以下方式关联：
+
+- **方式一**：将 `mcp.json` 内容合并进 `~/.mcporter/mcporter.json`
+- **方式二**：在 `~/.mcporter/mcporter.json` 的 `imports` 中引用：
+
+```json
+{
+  "imports": ["/Users/<username>/.openclaw/mcp.json"]
+}
+```
+
+## mcporter 配置
 
 ### 添加远程服务
 

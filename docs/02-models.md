@@ -203,12 +203,131 @@ openclaw models fallbacks add doubao/doubao-seed-1-8-251228
 
 详见 [记忆系统](08-memory.md)。
 
-### 模型提供商对比
+---
+
+## 方案 D: 企业 AI 网关（WPS）
+
+通过 wps-proxy 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口。**企业内部零成本，适合日常聊天场景。**
+
+### 前提条件
+
+- Node.js >= 18（proxy.mjs 使用原生 fetch）
+- 需在公司内网环境，能访问 `ai-gateway.wps.cn`
+- 需配置 `WPS_TOKEN` 环境变量
+
+### 架构
+
+```
+OpenClaw → wps-proxy (localhost:3010) → WPS AI 网关 (ai-gateway.wps.cn)
+```
+
+wps-proxy 负责将 OpenAI 格式的请求转换为 WPS 网关 V2 协议（Chat 类接口），并将响应转换回 OpenAI 格式。支持流式/非流式和 Tool Calling 透传。
+
+### 启动
+
+```bash
+# 必须先配置 WPS_TOKEN
+export WPS_TOKEN=<your-token>
+
+cd wps-proxy
+npm start
+```
+
+看到 `WPS AI Proxy 已启动 → http://127.0.0.1:3010/v1` 表示成功。
+
+通过 `--model` 指定默认模型（不指定则默认 `claude-opus-4-5`）：
+
+```bash
+# 使用 Sonnet 4.5
+node proxy.mjs --model claude-sonnet-4-5
+```
+
+如需修改端口：
+
+```bash
+PORT=3011 npm start
+```
+
+### Provider 配置
+
+在 `openclaw.json` 的 `models.providers` 下添加：
+
+```json
+"wps": {
+  "baseUrl": "http://127.0.0.1:3010/v1",
+  "api": "openai-completions",
+  "models": [
+    {
+      "id": "claude-sonnet-4-5",
+      "name": "Claude Sonnet 4.5",
+      "reasoning": true,
+      "input": ["text"],
+      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+      "contextWindow": 200000,
+      "maxTokens": 4096
+    },
+    {
+      "id": "claude-opus-4-5",
+      "name": "Claude Opus 4.5",
+      "reasoning": true,
+      "input": ["text"],
+      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+      "contextWindow": 200000,
+      "maxTokens": 4096
+    }
+  ]
+}
+```
+
+> 注意：如果修改了 `PORT`，需要同步更新 `baseUrl` 中的端口号。
+
+### 可用模型
+
+| 模型 ID | 说明 | 后端 |
+|---------|------|------|
+| `claude-opus-4-5` | Claude Opus 4.5（默认） | AWS Bedrock |
+| `claude-sonnet-4-5` | Claude Sonnet 4.5 | AWS Bedrock |
+
+### 与 Cursor 代理配合：模型切换
+
+WPS 代理（日常聊天）和 Cursor 代理（复杂任务）可同时运行，通过 OpenClaw 命令手动切换：
+
+```bash
+# 日常聊天 → WPS（企业内部零成本）
+openclaw models set wps/claude-opus-4-5
+
+# 复杂任务 → Cursor（强推理 + 深度工具调用）
+openclaw models set cursor-local/opus-4.6
+
+# 查看当前使用的模型
+openclaw models status
+```
+
+也可通过 OpenClaw Dashboard（`http://<Mac-IP>:18789`）在 Web UI 上切换。
+
+### 环境变量
+
+proxy.mjs 支持以下环境变量覆盖默认配置：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3010` | 监听端口 |
+| `WPS_GATEWAY_URL` | `http://ai-gateway.wps.cn/api/v2/llm/chat` | 网关地址 |
+| `WPS_TOKEN` | **必须配置** | Bearer Token |
+| `WPS_UID` | `9010` | AI-Gateway-Uid |
+| `WPS_PRODUCT` | `kdocs-as-baseserver` | AI-Gateway-Product-Name |
+| `WPS_INTENTION` | `kdocs_as_assistant_intentrecognize` | AI-Gateway-Intention-Code |
+
+详见 [wps-proxy README](../wps-proxy/README.md)
+
+---
+
+## 模型提供商对比
 
 | 模型提供商 | Tool Use 能力 | 性价比 | OpenAI 兼容 |
 |-----------|-------------|--------|-----------|
 | **Cursor Agent ACP 代理** | 极强（GPT-5/Claude 4.6） | **零额外成本** | 是（via cursor-proxy ACP） |
-| **企业 AI 网关** | 取决于后端模型 | 企业内部统一计费 | 部分兼容（需适配） |
+| **WPS AI 网关** | 取决于后端模型（Claude 4.5） | **企业内部零成本** | 是（via wps-proxy） |
 | 豆包 Doubao | 强 | 高 | 是 |
 | Qwen（通义千问） | 很强 | 高 | 是 |
 | GLM-4（智谱） | 不错 | 极高（有免费额度） | 是 |

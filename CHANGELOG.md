@@ -2,6 +2,15 @@
 
 ## 2026-03-06
 
+### 新增
+
+- `wps-proxy/` — WPS 内网 AI 网关代理，将 WPS 网关 V2 协议转为 OpenAI 兼容接口，支持 claude-sonnet-4-5 / claude-opus-4-5，企业内部零成本
+- `docs/02-models.md` 增加方案 D（企业 AI 网关）完整说明，含 WPS provider 配置和模型切换命令
+- `docs/99-config-snapshot.md` 增加 wps provider 配置段和双代理架构图
+- `docs/10-optimization-tips.md` — Token 优化最佳实践
+- `docs/06-mcp-integration.md` 增加 MCP 分层策略、Home Assistant 集成说明
+- `docs/99-config-snapshot.md` 增加 mcporter 配置、禁用 skill 列表说明
+
 ### 修改
 
 - MCP 文档重写：统一使用 mcporter，强调正确调用格式（key=value，不传 JSON），补充 kad/game-character 常用工具示例
@@ -11,12 +20,6 @@
 - cursor-proxy 默认工作目录从空改为 `~/.openclaw`，确保 Agent 能访问 skills/memory 等资源
 - cursor-proxy 增加会话自动轮换、死锁保护、idle 超时检测
 - 脱敏处理，清理文档中的私人信息
-
-### 新增
-
-- `docs/10-optimization-tips.md` — Token 优化最佳实践
-- `docs/06-mcp-integration.md` 增加 MCP 分层策略、Home Assistant 集成说明
-- `docs/99-config-snapshot.md` 增加 mcporter 配置、禁用 skill 列表说明
 
 ## 2026-03-05
 

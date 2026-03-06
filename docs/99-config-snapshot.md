@@ -1,6 +1,6 @@
 # 当前配置快照
 
-> 截取于 2026-03-06，已升级至 cursor-proxy ACP 模式（常驻进程，2-3秒响应）
+> 截取于 2026-03-06，已集成 wps-proxy（WPS AI 网关）+ cursor-proxy ACP（Cursor 订阅模型）双代理架构
 
 ## openclaw.json
 
@@ -43,6 +43,30 @@
         "models": [
           { "id": "doubao-seed-2-0-pro-260215", "name": "豆包 2.0 Pro" },
           { "id": "doubao-seed-2-0-lite-260215", "name": "豆包 2.0 Lite" }
+        ]
+      },
+      "wps": {
+        "baseUrl": "http://127.0.0.1:3010/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "claude-sonnet-4-5",
+            "name": "Claude Sonnet 4.5",
+            "reasoning": true,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 4096
+          },
+          {
+            "id": "claude-opus-4-5",
+            "name": "Claude Opus 4.5",
+            "reasoning": true,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 4096
+          }
         ]
       },
       "ollama": {
@@ -113,15 +137,18 @@
 ### 模型架构
 
 ```
-OpenClaw Gateway → cursor-proxy ACP (localhost:18790) → agent acp (常驻进程) → Cursor 订阅模型
+OpenClaw Gateway → wps-proxy (localhost:3010) → WPS AI 网关（日常聊天，企业零成本）
+                → cursor-proxy ACP (localhost:18790) → agent acp → Cursor 订阅模型（复杂任务）
                 → Ollama (localhost:11434) → Qwen2 1.5B（心跳专用）
                 → 豆包 Pro（fallback）
 ```
 
-- **主模型**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
-- **Fallback**：`doubao/doubao-seed-2-0-pro-260215`（ACP proxy 不可用时兜底）
+- **日常聊天**：`wps/claude-sonnet-4-5`（通过 wps-proxy 代理 WPS AI 网关）
+- **复杂任务**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
+- **Fallback**：`doubao/doubao-seed-2-0-pro-260215`（代理不可用时兜底）
 - **心跳模型**：`ollama/qwen2:1.5b`（本地运行，独立 session）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
+- **切换命令**：`openclaw models set wps/claude-sonnet-4-5`（日常）/ `openclaw models set cursor-local/opus-4.6`（复杂）
 
 ### cursor-proxy ACP 模式要点
 

@@ -1,0 +1,11 @@
+{
+  "name": "wps-ai-proxy",
+  "version": "1.0.0",
+  "description": "WPS AI Gateway proxy — OpenAI-compatible API adapter for WPS internal AI gateway",
+  "main": "proxy.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "node proxy.mjs",
+    "dev": "node --watch proxy.mjs"
+  }
+}

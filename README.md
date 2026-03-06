@@ -29,12 +29,13 @@
 
 ## 工具
 
-- **[cursor-proxy](cursor-proxy/)** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API 的 ACP 代理服务（常驻进程，2-3秒响应），复用 Cursor 订阅模型，零额外成本
+- **[cursor-proxy](cursor-proxy/)** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API 的 ACP 代理服务（常驻进程，2-3秒响应），复用 Cursor 订阅模型，适合复杂任务
+- **[wps-proxy](wps-proxy/)** — 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口，企业内部零成本，适合日常聊天
 
 ## 文档目录
 
 - [安装与迁移](docs/01-installation.md)
-- [模型配置](docs/02-models.md)（含 Cursor Agent 代理、火山引擎豆包等多种方案）
+- [模型配置](docs/02-models.md)（含 Cursor Agent 代理、WPS AI 网关、火山引擎豆包等多种方案）
 - [Gateway 与 Dashboard](docs/03-gateway.md)
 - [iMessage 频道配置](docs/04-imessage.md)
 - [TTS 语音合成](docs/05-tts.md)

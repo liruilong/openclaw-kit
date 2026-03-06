@@ -21,7 +21,7 @@ import { homedir } from "node:os";
 // ── Configuration ───────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.CURSOR_PROXY_PORT || "18790", 10);
-const WORKSPACE_DIR = process.env.CURSOR_WORKSPACE_DIR || "";
+const WORKSPACE_DIR = process.env.CURSOR_WORKSPACE_DIR || join(homedir(), ".openclaw");
 const API_KEY = process.env.CURSOR_PROXY_API_KEY || "";
 const CURSOR_MODEL = process.env.CURSOR_MODEL || "";
 
@@ -348,9 +348,12 @@ class ACPClient {
     await this._acquirePromptLock(requestId);
 
     try {
-      // 每次请求都创建新 session — OpenClaw 自己管理对话历史，
-      // 复用 ACP session 会导致上下文重复叠加（OpenClaw 历史 + ACP 历史）
-      await this.rotateSession("new_request");
+      // 复用 ACP session 直到达到阈值（默认 50 条请求或 10 万 token）
+      // proxy 只发最后一条 user message，不存在历史叠加问题
+      const rotateReason = this._shouldRotate();
+      if (rotateReason) {
+        await this.rotateSession(rotateReason);
+      }
       const sessionId = await this.ensureSession();
       this.totalRequests++;
       this.sessionRequests++;

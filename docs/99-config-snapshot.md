@@ -129,7 +129,8 @@ OpenClaw Gateway → cursor-proxy ACP (localhost:18790) → agent acp (常驻进
 - 后续请求 2-3 秒响应（旧 llm-proxy spawn 模式需 13-27 秒）
 - `session/request_permission` 自动 approve-always
 - 崩溃自动重启（2秒延迟）
-- 由 `openclaw-cursor-brain` 插件自动管理生命周期
+- **Session 复用**：同一 ACP session 处理多个请求，直到达到阈值（50 条或 10 万 token）才轮换，避免每次请求都重建 session 导致的性能问题和卡死
+- **默认工作目录**：`CURSOR_WORKSPACE_DIR` 默认为 `~/.openclaw`，确保 Agent 能访问 skills、memory 等资源
 - 详见 [cursor-proxy README](../cursor-proxy/README.md)
 
 ### 心跳隔离

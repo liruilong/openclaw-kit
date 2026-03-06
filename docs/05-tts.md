@@ -67,6 +67,6 @@ openclaw config set messages.tts.auto '"off"'
 openclaw config set messages.tts.edge.voice '"zh-CN-XiaoxiaoNeural"'
 ```
 
-## 桌面语音通知（Game Character MCP）
+## 远程语音通知（MCP）
 
-除了 iMessage 内置 TTS，还可以通过远程 MCP 工具 `character_speak` 在 Windows 桌面上语音通知用户。详见 [MCP 远程工具集成](06-mcp-integration.md)。
+除了 iMessage 内置 TTS，还可以通过远程 MCP 工具进行语音通知。详见 [MCP 远程工具集成](06-mcp-integration.md)。

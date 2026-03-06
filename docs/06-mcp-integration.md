@@ -21,9 +21,9 @@
                           ┌─ Cursor MCP ──→ openclaw-gateway（编码工具）
                           │
 OpenClaw Agent ───────────┤
-                          │                 ┌─ game-character（桌面角色/语音）
+                          │                 ┌─ homeassistant（智能家居）
                           └─ mcporter ──────┤
-                                            ├─ homeassistant（智能家居）
+                                            ├─ <your-mcp-service>（自定义服务）
                                             └─ ...（更多通用工具）
 ```
 
@@ -81,7 +81,7 @@ npx mcporter call <service-name>.<tool-name> param1="value1" param2="value2"
 
 ## Agent 工作区配置
 
-在 `~/clawd/` 下的文件中告知 Agent 可用的远程工具：
+在 Agent 工作区目录下的文件中告知 Agent 可用的远程工具：
 
 ### TOOLS.md
 
@@ -159,34 +159,17 @@ npx mcporter call homeassistant.GetLiveContext
 - 用 `domain` 过滤设备类型：`light`, `switch`, `fan`, `climate`, `media_player`
 - 部分灯通过智能开关控制（如展柜灯），domain 需用 `switch` 而非 `light`
 
-## 实例：Game Character 桌面角色
+## 实例：自定义远程 MCP 服务
 
-Windows 桌面端运行的虚拟角色 MCP 服务，支持语音合成和表情动画。
+如果你有自己的 MCP 服务（如语音助手、通知系统等），可以同样通过 mcporter 接入：
 
 ```bash
-npx mcporter config add game-character \
-  --url http://<Windows-IP>:9884/mcp \
+npx mcporter config add <your-service> \
+  --url http://<remote-host>:<port>/mcp \
   --scope home
 ```
 
-### 可用工具
-
-| 工具 | 功能 |
-|------|------|
-| `character_speak` | 角色语音说话（支持表情动画） |
-| `character_animate` | 触发角色动画（无语音） |
-| `tts_synthesize` | 合成语音文件 |
-| `get_status` | 查询 TTS 和连接状态 |
-
-### 使用示例
-
-```bash
-npx mcporter call game-character.character_speak \
-  text="你好主人！" lang=zh emotion=Happy
-```
-
-支持表情：Happy, Confused, Sad, Fun, Agree, Drink, Wave, Think
-支持语言：ja, zh, en, ko, yue
+接入后在 Agent 工作区的 `TOOLS.md` 中记录工具信息和调用方式，Agent 就能自动发现和使用。
 
 ## 前提条件
 

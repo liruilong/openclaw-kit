@@ -12,9 +12,20 @@
 | Node.js 版本 | v24.13.0 |
 | macOS 架构 | Intel x86_64 |
 | 配置文件 | `~/.openclaw/openclaw.json` |
-| Agent 工作区 | `~/clawd/` |
+| Agent 工作区 | `~/agent-workspace/`（自定义） |
 | Gateway 端口 | 18789 |
 | Dashboard | `http://<Mac-IP>:18789` |
+
+## 使用说明
+
+文档中的路径和配置已做脱敏处理，部署时按需替换：
+
+| 占位符 | 说明 |
+|--------|------|
+| `~/agent-workspace/` | Agent 工作区路径，实际部署时自定义 |
+| `<Mac-IP>` / `<Windows-IP>` | 按实际 IP 替换 |
+| `<username>` | 按实际用户名替换 |
+| `***` | 配置快照中的 API Key 脱敏 |
 
 ## 工具
 

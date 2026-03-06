@@ -160,10 +160,10 @@ openclaw plugins enable memory-lancedb
 
 ## 记忆文件
 
-Agent 的记忆存储在 `~/clawd/memory/` 目录下：
+Agent 的记忆存储在 `~/agent-workspace/memory/` 目录下：
 
 ```
-~/clawd/memory/
+~/agent-workspace/memory/
 ├── 2026-03-02.md    # 每日记忆
 ├── 2026-03-03.md
 └── ...

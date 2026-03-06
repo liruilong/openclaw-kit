@@ -51,7 +51,7 @@ openclaw gateway restart
 
 ```bash
 cd cursor-proxy
-CURSOR_WORKSPACE_DIR=~/clawd npm start
+CURSOR_WORKSPACE_DIR=~/agent-workspace npm start
 ```
 
 然后在 `openclaw.json` 的 `models.providers` 下手动配置：

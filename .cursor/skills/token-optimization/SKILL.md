@@ -100,8 +100,8 @@ Flag if:
 
 ```bash
 # Check total size of workspace files that get injected
-du -sh ~/clawd/ --exclude=.git --exclude=node_modules --exclude=memory 2>/dev/null
-find ~/clawd/ -name "*.md" -not -path "*/memory/*" -not -path "*/.git/*" | xargs wc -c 2>/dev/null | tail -1
+du -sh ~/agent-workspace/ --exclude=.git --exclude=node_modules --exclude=memory 2>/dev/null
+find ~/agent-workspace/ -name "*.md" -not -path "*/memory/*" -not -path "*/.git/*" | xargs wc -c 2>/dev/null | tail -1
 ```
 
 Flag if total workspace markdown exceeds 50KB — consider using QMD or trimming files.

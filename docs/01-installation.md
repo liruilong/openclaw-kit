@@ -63,7 +63,7 @@ openclaw gateway --force
 |------|------|
 | OpenClaw 主程序 | `/usr/local/lib/node_modules/openclaw/` |
 | 配置文件 | `~/.openclaw/openclaw.json` |
-| Agent 工作区 | `~/clawd/` |
+| Agent 工作区 | `~/agent-workspace/` |
 | LaunchAgent | `~/Library/LaunchAgents/ai.openclaw.gateway.plist` |
 | 日志 | `~/.openclaw/logs/gateway.log` |
 | 错误日志 | `~/.openclaw/logs/gateway.err.log` |

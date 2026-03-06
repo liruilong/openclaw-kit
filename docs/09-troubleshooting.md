@@ -120,14 +120,14 @@ openclaw gateway --force
 
 ## MCP 相关
 
-### 问题：OpenClaw 不知道 game-character MCP 工具
+### 问题：OpenClaw 不知道某个 MCP 工具
 
 mcporter 配置好了，但 Agent 在对话中不知道有这个工具。
 
-**解决方案**：在 `~/clawd/TOOLS.md` 中详细写明工具信息和调用方式，在 `~/clawd/AGENTS.md` 中添加使用规则。Agent 通过读取这些文件来了解可用工具。
+**解决方案**：在 Agent 工作区的 `TOOLS.md` 中详细写明工具信息和调用方式，在 `AGENTS.md` 中添加使用规则。Agent 通过读取这些文件来了解可用工具。
 
 ### 问题：MCP HTTP 端口未开放
 
 Cursor IDE 的 MCP 进程需要重启才能加载新代码。
 
-**解决方案**：在 Cursor 的 MCP 设置面板中手动重启 `game-character` 服务，或重新加载 Cursor 窗口（`Ctrl+Shift+P → Reload Window`）。
+**解决方案**：在 Cursor 的 MCP 设置面板中手动重启对应 MCP 服务，或重新加载 Cursor 窗口（`Ctrl+Shift+P → Reload Window`）。

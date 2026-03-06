@@ -62,7 +62,7 @@
         "primary": "cursor-local/opus-4.6",
         "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
       },
-      "workspace": "~/clawd",
+      "workspace": "~/agent-workspace",
       "memorySearch": {
         "provider": "openai",
         "remote": {
@@ -145,9 +145,6 @@ mcporter 管理不经过 Cursor IDE 的通用 MCP 工具，配置文件位于 `~
   "mcpServers": {
     "homeassistant": {
       "baseUrl": "http://<HA-IP>:8123/mcp_server/sse"
-    },
-    "game-character": {
-      "baseUrl": "http://<Windows-IP>:9884/mcp"
     }
   }
 }

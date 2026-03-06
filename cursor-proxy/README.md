@@ -27,7 +27,7 @@ npm start
 或指定配置：
 
 ```bash
-CURSOR_PROXY_PORT=18790 CURSOR_WORKSPACE_DIR=~/clawd npm start
+CURSOR_PROXY_PORT=18790 CURSOR_WORKSPACE_DIR=~/agent-workspace npm start
 ```
 
 ## API 接口

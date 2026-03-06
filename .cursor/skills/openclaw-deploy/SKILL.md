@@ -38,7 +38,7 @@ openclaw onboard   # 交互式向导，需用户在终端中手动操作
 | 组件 | 路径 |
 |------|------|
 | 配置文件 | `~/.openclaw/openclaw.json` |
-| Agent 工作区 | `~/clawd/` |
+| Agent 工作区 | `~/agent-workspace/` |
 | LaunchAgent | `~/Library/LaunchAgents/ai.openclaw.gateway.plist` |
 | 日志 | `~/.openclaw/logs/gateway.log` |
 
@@ -428,7 +428,7 @@ provider 选项：`edge`（免费）、`elevenlabs`（付费高质量）、`open
 
 通过 `mcporter config add --scope home` 注册到系统级配置（`~/.mcporter/mcporter.json`），OpenClaw 会自动发现。
 
-> **注意**：不要用 `~/clawd/.cursor/mcp.json`，那是 Cursor IDE 格式，OpenClaw 不读取。OpenClaw 通过 mcporter 管理 MCP 服务。
+> **注意**：不要用 `~/agent-workspace/.cursor/mcp.json`，那是 Cursor IDE 格式，OpenClaw 不读取。OpenClaw 通过 mcporter 管理 MCP 服务。
 
 #### 6.1 kad（企业知识库）
 
@@ -494,7 +494,7 @@ openclaw gateway restart             # 重启让 OpenClaw 加载
 
 必须在 Agent 工作区文件中注册已安装的 MCP，否则 Agent 不知道工具的存在：
 
-#### 更新 `~/clawd/TOOLS.md`
+#### 更新 `~/agent-workspace/TOOLS.md`
 
 在「MCP 工具」章节中，为每个已安装的 MCP 添加：
 - 工具名称和用途
@@ -510,7 +510,7 @@ openclaw gateway restart             # 重启让 OpenClaw 加载
 4.（可选）search_wiki_detail_with_brief(query, drives) → 搜索特定内容
 ```
 
-#### 更新 `~/clawd/AGENTS.md`
+#### 更新 `~/agent-workspace/AGENTS.md`
 
 添加触发规则，告诉 Agent 什么时候用什么工具。例如：
 
@@ -672,16 +672,16 @@ openclaw sessions list --verbose
 
 ```bash
 # 创建 skills 目录（OpenClaw 原生路径）
-mkdir -p ~/clawd/skills
+mkdir -p ~/agent-workspace/skills
 
 # 从本项目复制通用 skills（排除 openclaw-deploy 和 mermaid-chart）
 SKILL_SRC="<本项目路径>/.cursor/skills"
 for skill in brainstorming writing-plans systematic-debugging requirement-extraction knowledge-base-query code-validation token-optimization; do
-  cp -r "$SKILL_SRC/$skill" ~/clawd/skills/
+  cp -r "$SKILL_SRC/$skill" ~/agent-workspace/skills/
 done
 ```
 
-> Agent 执行时应自动完成：读取本项目 `.cursor/skills/` 目录，将下表中的 skills 复制到 `~/clawd/skills/`。
+> Agent 执行时应自动完成：读取本项目 `.cursor/skills/` 目录，将下表中的 skills 复制到 `~/agent-workspace/skills/`。
 
 安装的 Skills 清单：
 
@@ -706,7 +706,7 @@ done
 
 **必须执行此步骤**，否则 Agent 不知道有哪些 skill 可用。
 
-在 `~/clawd/AGENTS.md` 中添加「技能库」章节，包含一张索引表：
+在 `~/agent-workspace/AGENTS.md` 中添加「技能库」章节，包含一张索引表：
 
 ```markdown
 ## 技能库
@@ -738,7 +738,7 @@ openclaw skills list | grep "openclaw-workspace"
 ```
 
 > **关键区别**：
-> - OpenClaw 的 skill 放在 `~/clawd/skills/`（**不是** `.cursor/skills/`）
+> - OpenClaw 的 skill 放在 `~/agent-workspace/skills/`（**不是** `.cursor/skills/`）
 > - OpenClaw 会自动扫描 `skills/` 目录并根据 SKILL.md 的 description 匹配触发条件
 > - 但仍建议在 `AGENTS.md` 中建立索引表，帮助 Agent 更准确地选择技能
 
@@ -753,7 +753,7 @@ openclaw dashboard     # 打开 Dashboard
 
 ## Agent 工作区
 
-`~/clawd/` 目录下的核心文件：
+`~/agent-workspace/` 目录下的核心文件：
 
 | 文件/目录 | 作用 |
 |----------|------|

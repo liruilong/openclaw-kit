@@ -31,6 +31,13 @@ const REQUEST_TIMEOUT_MS = parseInt(process.env.CURSOR_PROXY_REQUEST_TIMEOUT || 
 const ACP_RESTART_DELAY_MS = 2000;
 const ACP_INIT_TIMEOUT_MS = 15000;
 
+// 会话自动轮换阈值（同一 session 内的请求数）
+const SESSION_MAX_REQUESTS = parseInt(process.env.CURSOR_SESSION_MAX_REQUESTS || "50", 10);
+// 估算 token 上限（128k context window，预留 20% 缓冲）
+const SESSION_MAX_ESTIMATED_TOKENS = parseInt(process.env.CURSOR_SESSION_MAX_TOKENS || "100000", 10);
+// 每字符约 0.3 token（中英文混合粗估）
+const CHARS_PER_TOKEN = 3.3;
+
 // ── Script identity ─────────────────────────────────────────────────────────
 
 function computeScriptHash() {
@@ -149,6 +156,11 @@ class ACPClient {
     this.restarting = false;
     this.totalRequests = 0;
     this.startTime = null;
+    this.sessionRequests = 0;
+    this.sessionEstimatedTokens = 0;
+    this.sessionRotations = 0;
+    this._promptLock = null;
+    this._promptLockTime = null;
   }
 
   async start() {
@@ -274,81 +286,176 @@ class ACPClient {
 
   async ensureSession() {
     if (this.sessionId) return this.sessionId;
+    return this._createNewSession();
+  }
+
+  async _createNewSession() {
     const result = await this._send("session/new", {
       cwd: this.cwd || process.cwd(),
       mcpServers: [],
     });
     this.sessionId = result.sessionId;
+    this.sessionRequests = 0;
+    this.sessionEstimatedTokens = 0;
     log("info", `ACP session created: ${this.sessionId}`);
     return this.sessionId;
   }
 
-  // Send a prompt and collect response via update notifications
-  // Returns an async generator that yields events
-  async *prompt(text, { model, requestId } = {}) {
-    const sessionId = await this.ensureSession();
-    this.totalRequests++;
+  async rotateSession(reason = "manual") {
+    const oldId = this.sessionId;
+    this.sessionId = null;
+    this.sessionRotations++;
+    log("info", `Session rotation (${reason}): old=${oldId}, requests=${this.sessionRequests}, est_tokens=${this.sessionEstimatedTokens}`);
+    return this._createNewSession();
+  }
 
-    const promptContent = [{ type: "text", text }];
-    const promptParams = { sessionId, prompt: promptContent };
-    if (model && model !== "auto") promptParams.model = model;
+  _shouldRotate() {
+    if (this.sessionRequests >= SESSION_MAX_REQUESTS) return "max_requests";
+    if (this.sessionEstimatedTokens >= SESSION_MAX_ESTIMATED_TOKENS) return "max_tokens";
+    return null;
+  }
 
-    const updateQueue = [];
-    let updateResolve = null;
-    let promptDone = false;
-    let promptResult = null;
-    let promptError = null;
+  _trackTokens(text) {
+    this.sessionEstimatedTokens += Math.ceil(text.length / CHARS_PER_TOKEN);
+  }
 
-    const onUpdate = (msg) => {
-      const update = msg.params?.update;
-      if (!update) return;
-      updateQueue.push(update);
-      if (updateResolve) {
-        updateResolve();
-        updateResolve = null;
+  async _acquirePromptLock(requestId) {
+    const LOCK_WAIT_TIMEOUT_MS = 30000;
+    const startWait = Date.now();
+
+    while (this._promptLock) {
+      const waited = Date.now() - startWait;
+      if (waited > LOCK_WAIT_TIMEOUT_MS) {
+        log("warn", `[${requestId}] prompt lock wait timeout (${LOCK_WAIT_TIMEOUT_MS}ms), held by ${this._promptLock}. Force-releasing.`);
+        this._promptLock = null;
+        break;
       }
-    };
-
-    // Register handler for session/update
-    if (!this.notificationHandlers.has("session/update")) {
-      this.notificationHandlers.set("session/update", new Set());
+      log("info", `[${requestId}] waiting for prompt lock (held by ${this._promptLock}, ${waited}ms elapsed)`);
+      await new Promise((r) => setTimeout(r, 500));
     }
-    this.notificationHandlers.get("session/update").add(onUpdate);
+    this._promptLock = requestId;
+    this._promptLockTime = Date.now();
+  }
 
-    // Send prompt (async — the response comes when the turn is done)
-    this._send("session/prompt", promptParams).then(
-      (result) => {
-        promptDone = true;
-        promptResult = result;
-        if (updateResolve) { updateResolve(); updateResolve = null; }
-      },
-      (err) => {
-        promptDone = true;
-        promptError = err;
-        if (updateResolve) { updateResolve(); updateResolve = null; }
-      }
-    );
+  _releasePromptLock(requestId) {
+    if (this._promptLock === requestId) {
+      this._promptLock = null;
+      this._promptLockTime = null;
+    }
+  }
+
+  async *prompt(text, { model, requestId } = {}) {
+    await this._acquirePromptLock(requestId);
 
     try {
-      while (true) {
-        while (updateQueue.length > 0) {
-          yield updateQueue.shift();
+      const rotateReason = this._shouldRotate();
+      if (rotateReason) {
+        await this.rotateSession(rotateReason);
+      }
+      const sessionId = await this.ensureSession();
+      this.totalRequests++;
+      this.sessionRequests++;
+      this._trackTokens(text);
+
+      const promptContent = [{ type: "text", text }];
+      const promptParams = { sessionId, prompt: promptContent };
+      if (model && model !== "auto") promptParams.model = model;
+
+      const updateQueue = [];
+      let updateResolve = null;
+      let promptDone = false;
+      let promptResult = null;
+      let promptError = null;
+
+      const onUpdate = (msg) => {
+        const update = msg.params?.update;
+        if (!update) return;
+        updateQueue.push(update);
+        if (updateResolve) {
+          updateResolve();
+          updateResolve = null;
         }
-        if (promptDone) break;
-        await new Promise((r) => { updateResolve = r; });
+      };
+
+      if (!this.notificationHandlers.has("session/update")) {
+        this.notificationHandlers.set("session/update", new Set());
       }
-      // Drain remaining
-      while (updateQueue.length > 0) {
-        yield updateQueue.shift();
-      }
-      if (promptError) {
-        yield { _error: promptError };
-      }
-      if (promptResult) {
-        yield { _done: true, stopReason: promptResult.stopReason };
+      this.notificationHandlers.get("session/update").add(onUpdate);
+
+      const PROMPT_IDLE_TIMEOUT_MS = 120000;
+      let lastActivity = Date.now();
+
+      this._send("session/prompt", promptParams).then(
+        (result) => {
+          promptDone = true;
+          promptResult = result;
+          lastActivity = Date.now();
+          if (updateResolve) { updateResolve(); updateResolve = null; }
+        },
+        (err) => {
+          promptDone = true;
+          promptError = err;
+          lastActivity = Date.now();
+          if (updateResolve) { updateResolve(); updateResolve = null; }
+        }
+      );
+
+      const origOnUpdate = onUpdate;
+      const trackingOnUpdate = (msg) => {
+        lastActivity = Date.now();
+        origOnUpdate(msg);
+      };
+      this.notificationHandlers.get("session/update").delete(onUpdate);
+      this.notificationHandlers.get("session/update").add(trackingOnUpdate);
+
+      try {
+        while (true) {
+          while (updateQueue.length > 0) {
+            const update = updateQueue.shift();
+            if (update.sessionUpdate === "agent_message_chunk" && update.content?.text) {
+              this._trackTokens(update.content.text);
+            }
+            yield update;
+          }
+          if (promptDone) break;
+          const idleMs = Date.now() - lastActivity;
+          if (idleMs > PROMPT_IDLE_TIMEOUT_MS) {
+            log("warn", `[${requestId}] ACP idle timeout (${PROMPT_IDLE_TIMEOUT_MS}ms with no activity), aborting prompt`);
+            yield { _error: { message: `ACP idle timeout after ${Math.round(idleMs / 1000)}s` } };
+            break;
+          }
+          await new Promise((r) => {
+            updateResolve = r;
+            setTimeout(r, 5000);
+          });
+        }
+        while (updateQueue.length > 0) {
+          const update = updateQueue.shift();
+          if (update.sessionUpdate === "agent_message_chunk" && update.content?.text) {
+            this._trackTokens(update.content.text);
+          }
+          yield update;
+        }
+        if (promptError) {
+          const errMsg = promptError.message || JSON.stringify(promptError);
+          if (/context.*(full|overflow|limit|too long)/i.test(errMsg) || /max.*token/i.test(errMsg)) {
+            log("warn", `[${requestId}] Context overflow detected, scheduling session rotation`);
+            this.sessionEstimatedTokens = SESSION_MAX_ESTIMATED_TOKENS;
+          }
+          yield { _error: promptError };
+        }
+        if (promptResult) {
+          if (promptResult.stopReason === "max_tokens" || promptResult.stopReason === "length") {
+            log("warn", `[${requestId}] stopReason=${promptResult.stopReason}, scheduling session rotation`);
+            this.sessionEstimatedTokens = SESSION_MAX_ESTIMATED_TOKENS;
+          }
+          yield { _done: true, stopReason: promptResult.stopReason };
+        }
+      } finally {
+        this.notificationHandlers.get("session/update")?.delete(trackingOnUpdate);
       }
     } finally {
-      this.notificationHandlers.get("session/update")?.delete(onUpdate);
+      this._releasePromptLock(requestId);
     }
   }
 
@@ -379,6 +486,14 @@ class ACPClient {
       uptime: this.startTime ? Math.floor((Date.now() - this.startTime) / 1000) : 0,
       totalRequests: this.totalRequests,
       pendingRequests: this.pending.size,
+      session: {
+        requests: this.sessionRequests,
+        estimatedTokens: this.sessionEstimatedTokens,
+        maxRequests: SESSION_MAX_REQUESTS,
+        maxTokens: SESSION_MAX_ESTIMATED_TOKENS,
+        utilizationPct: Math.round((this.sessionEstimatedTokens / SESSION_MAX_ESTIMATED_TOKENS) * 100),
+      },
+      sessionRotations: this.sessionRotations,
     };
   }
 
@@ -630,6 +745,17 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/v1/models") {
     res.writeHead(200, { "Content-Type": "application/json" });
     return res.end(JSON.stringify({ data: cachedModels }));
+  }
+
+  if (req.method === "POST" && req.url === "/v1/session/rotate") {
+    try {
+      const newSessionId = await acpClient.rotateSession("api_request");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ ok: true, sessionId: newSessionId, status: acpClient.status() }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: { message: e.message } }));
+    }
   }
 
   if (req.method === "POST" && req.url === "/v1/chat/completions") {

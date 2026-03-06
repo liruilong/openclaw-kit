@@ -4,6 +4,9 @@
 
 ### 修改
 
+- MCP 文档重写：统一使用 mcporter，强调正确调用格式（key=value，不传 JSON），补充 kad/game-character 常用工具示例
+- 去掉 `~/.openclaw/mcp.json` 作为配置源的方案，配置统一维护在 `~/.mcporter/mcporter.json`
+
 - cursor-proxy ACP session 改为复用模式，达到阈值（50 条请求或 10 万 token）才轮换，替代之前每次请求都重建 session
 - cursor-proxy 默认工作目录从空改为 `~/.openclaw`，确保 Agent 能访问 skills/memory 等资源
 - cursor-proxy 增加会话自动轮换、死锁保护、idle 超时检测

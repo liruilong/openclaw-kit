@@ -1,19 +1,35 @@
-# MCP 远程工具集成
+# MCP 工具集成
 
 ## 概述
 
-通过 Model Context Protocol (MCP) 的 HTTP transport，OpenClaw 可以远程调用局域网内其他主机上的 MCP 服务，扩展 Agent 的工具能力（如智能家居控制、桌面角色互动、消息通知等）。
+OpenClaw 通过内置的 **mcporter** skill 调用 MCP 工具。Agent 使用 `npx mcporter call` 命令与 MCP 服务交互。
 
-## MCP 管理策略：分层架构
+## 🔴 调用格式（必读）
 
-不同类型的 MCP server 应放在不同的配置位置，避免重复和混乱：
+mcporter 使用 **点号连接** 服务名和工具名，参数用 **key=value** 格式，**不要传 JSON**。
+
+```bash
+# ✅ 正确：key=value 格式
+npx mcporter call kad.search_wiki_list keyword="openclaw" page_size=3 drive_ids='[]'
+npx mcporter call kad.get_drive_info_by_link_id link_id="cp7iZTCWNFeB"
+npx mcporter call homeassistant.HassTurnOff area=书房 'domain=["light"]'
+npx mcporter call game-character.character_speak text="你好" emotion="Happy" lang="zh"
+
+# ❌ 错误：不要传 JSON 对象
+npx mcporter call kad.search_wiki_list '{"keyword":"openclaw","page_size":3}'
+npx mcporter call kad.search_wiki_list --params '{"keyword":"openclaw"}'
+```
+
+**数组参数**用引号包裹：`'domain=["light"]'` 或 `drive_ids='[]'`
+
+## MCP 管理策略
 
 | 层级 | 配置位置 | 放什么 | 原因 |
 |------|---------|--------|------|
-| **Cursor MCP** | `~/.cursor/mcp.json` | 编码相关 MCP（如 `openclaw-gateway`） | Cursor IDE 直接调用，换模型不影响 |
-| **mcporter** | `~/.mcporter/mcporter.json` | 非编码通用工具（智能家居、语音角色等） | 任何渠道（iMessage、webchat 等）均可调用 |
+| **Cursor MCP** | `~/.cursor/mcp.json` | 编码相关 MCP（如 `openclaw-gateway`） | Cursor IDE 直接调用 |
+| **mcporter** | `~/.mcporter/mcporter.json` | 通用工具（知识库、智能家居、语音角色等） | 任何渠道（iMessage、webchat 等）均可调用 |
 
-**原则：** 如果一个 MCP 只在 Cursor 编码时用，放 Cursor 配置；如果 Agent 在任何渠道都需要用，放 mcporter。两者不要重复配置同一个 MCP server。
+**原则**：编码专用 MCP 放 Cursor 配置；Agent 通用 MCP 放 mcporter。不要重复配置。
 
 ## 架构
 
@@ -21,53 +37,24 @@
                           ┌─ Cursor MCP ──→ openclaw-gateway（编码工具）
                           │
 OpenClaw Agent ───────────┤
-                          │                 ┌─ homeassistant（智能家居）
-                          └─ mcporter ──────┤
-                                            ├─ <your-mcp-service>（自定义服务）
-                                            └─ ...（更多通用工具）
+                          │                 ┌─ kad（金山文档知识库）
+                          └─ mcporter ──────┤─ game-character（桌面角色互动）
+                                            ├─ playwright（浏览器自动化）
+                                            ├─ homeassistant（智能家居）
+                                            └─ ...（更多服务）
 ```
 
-## 远程 MCP 服务端要求
+## mcporter 配置
 
-MCP 服务需同时支持 Streamable HTTP transport，监听一个 HTTP 端口供远程调用：
+配置文件：`~/.mcporter/mcporter.json`
 
-```javascript
-// 示例：同时提供 Stdio + HTTP 两种 transport
-const server = new McpServer({ name: "my-service", version: "1.0.0" });
-
-// Stdio（供本地 Cursor IDE 使用）
-const stdioTransport = new StdioServerTransport();
-await server.connect(stdioTransport);
-
-// HTTP（供远程 OpenClaw 使用）
-const httpTransport = new StreamableHTTPServerTransport({ endpoint: "/mcp" });
-app.use("/mcp", httpTransport.requestHandler);
-app.listen(Number(process.env.MCP_HTTP_PORT) || 9884);
-```
-
-确保：
-- 防火墙允许对应端口入站
-- 两台主机在同一局域网（或通过 VPN/SSH 隧道连通）
-
-## OpenClaw MCP 配置文件
-
-OpenClaw 工作区内可通过 `~/.openclaw/mcp.json` 维护 MCP 服务列表，格式与 mcporter 兼容。
-
-### 文件位置
-
-```
-~/.openclaw/mcp.json
-```
-
-### 服务类型
-
-**1. HTTP 类 MCP 服务**（如 kad 知识库）
+### HTTP 类服务（如 kad 知识库）
 
 ```json
 {
   "mcpServers": {
     "kad": {
-      "baseUrl": "http://<mcp-endpoint>/sse",
+      "baseUrl": "http://kmcp.wps.cn/kad/wiki/mcp",
       "headers": {
         "cookie": "wps_sid=xxx;kso_sid=yyy"
       }
@@ -76,136 +63,85 @@ OpenClaw 工作区内可通过 `~/.openclaw/mcp.json` 维护 MCP 服务列表，
 }
 ```
 
-**2. STDIO 类 MCP 服务**（本地进程）
+cookie 获取：浏览器登录 [金山文档](https://www.kdocs.cn) → 开发者工具 → Application → Cookies → 复制 `wps_sid` 和 `kso_sid`
+
+### STDIO 类服务（本地进程）
 
 ```json
 {
   "mcpServers": {
-    "my-tool": {
+    "game-character": {
+      "command": "node",
+      "args": ["/path/to/game-character-mcp/dist/index.js"],
+      "env": { "AUTO_LAUNCH": "false" }
+    },
+    "playwright": {
       "command": "npx",
-      "args": ["-y", "my-mcp-server"],
-      "env": {
-        "API_KEY": "从环境变量获取"
-      }
+      "args": ["@playwright/mcp@latest"]
     }
   }
 }
 ```
-
-### cookie 获取（以 kad 知识库为例）
-
-1. 浏览器登录 [金山文档](https://www.kdocs.cn)
-2. 开发者工具 → Application → Cookies
-3. 复制 `wps_sid`、`kso_sid` 的值
-4. 在 `headers.cookie` 中填写：`wps_sid=xxx;kso_sid=yyy`
-
-### 与 mcporter 的关系
-
-OpenClaw 通过 **mcporter** skill 调用 MCP，mcporter 默认读取 `~/.mcporter/mcporter.json`。可通过以下方式关联：
-
-- **方式一**：将 `mcp.json` 内容合并进 `~/.mcporter/mcporter.json`
-- **方式二**：在 `~/.mcporter/mcporter.json` 的 `imports` 中引用：
-
-```json
-{
-  "imports": ["/Users/<username>/.openclaw/mcp.json"]
-}
-```
-
-## mcporter 配置
 
 ### 添加远程服务
 
 ```bash
-npx mcporter config add <service-name> --url http://<remote-host>:<port>/mcp --scope home
+npx mcporter config add <service-name> --url http://<host>:<port>/mcp --scope home
 ```
 
-配置文件位于 `~/.mcporter/mcporter.json`：
-
-```json
-{
-  "mcpServers": {
-    "<service-name>": {
-      "baseUrl": "http://<remote-host>:<port>/mcp"
-    }
-  }
-}
-```
-
-### 验证连接
+### 验证
 
 ```bash
-# 列出远程工具
+# 列出所有服务和工具
+npx mcporter list
+
+# 列出指定服务的工具详情
 npx mcporter list <service-name> --schema
 
 # 调用工具
 npx mcporter call <service-name>.<tool-name> param1="value1" param2="value2"
 ```
 
-## Agent 工作区配置
+## 当前服务清单
 
-在 Agent 工作区目录下的文件中告知 Agent 可用的远程工具：
+| 服务 | 类型 | 工具数 | 说明 |
+|------|------|--------|------|
+| kad | HTTP | 6 | 金山文档知识库（搜索、召回文档内容） |
+| game-character | STDIO | 4 | 桌面角色互动（语音、动画、TTS） |
+| playwright | STDIO | 22 | 浏览器自动化（导航、截图、交互） |
 
-### TOOLS.md
+### kad 常用工具
 
-记录工具调用方式和参数：
+```bash
+# 搜索文档列表
+npx mcporter call kad.search_wiki_list keyword="关键词" page_size=5 drive_ids='[]'
 
-```markdown
-## 远程 MCP 工具
+# 根据链接获取文档信息
+npx mcporter call kad.get_drive_info_by_link_id link_id="cp7iZTCWNFeB"
 
-### <service-name>
-
-调用方式：
-\`\`\`bash
-npx mcporter call <service-name>.<tool-name> param1="value1"
-\`\`\`
-
-可用工具：
-- `tool_a` — 功能描述
-- `tool_b` — 功能描述
+# 搜索文档内容片段
+npx mcporter call kad.search_wiki_detail query="关键词" scene="full_folder_recall" drives='[]'
 ```
 
-### AGENTS.md
+### game-character 常用工具
 
-添加使用规则，例如何时调用、参数选择指南等：
+```bash
+# 角色说话（带表情和 TTS）
+npx mcporter call game-character.character_speak text="你好" emotion="Happy" lang="zh"
 
-```markdown
-## 工具使用规则
+# 触发角色动画
+npx mcporter call game-character.character_animate emotion="Wave"
 
-- 需要通知用户时，通过 `<service-name>.<notify-tool>` 发送通知
-- 查询数据时，优先使用 `<service-name>.<query-tool>`
+# 检查连接状态
+npx mcporter call game-character.get_status
 ```
 
 ## 实例：Home Assistant 智能家居
 
-Home Assistant 内置了 MCP Server 集成（SSE transport），可直接通过 mcporter 接入。
-
-### 添加配置
-
 ```bash
-npx mcporter config add homeassistant \
-  --url http://<HA-IP>:8123/mcp_server/sse \
-  --scope home
-```
+# 添加配置
+npx mcporter config add homeassistant --url http://<HA-IP>:8123/mcp_server/sse --scope home
 
-### 可用工具（14个）
-
-| 工具 | 功能 |
-|------|------|
-| `HassTurnOn` / `HassTurnOff` | 开关设备（支持 name/area/floor/domain 参数） |
-| `HassLightSet` | 设置灯光亮度/颜色 |
-| `HassClimateSetTemperature` | 设置空调温度 |
-| `HassFanSetSpeed` | 设置风扇速度 |
-| `HassMediaPause` / `HassMediaUnpause` | 媒体暂停/继续 |
-| `HassMediaNext` / `HassMediaPrevious` | 上一首/下一首 |
-| `HassSetVolume` / `HassSetVolumeRelative` | 音量控制 |
-| `HassMediaSearchAndPlay` | 搜索并播放媒体 |
-| `HassCancelAllTimers` | 取消所有定时器 |
-| `GetLiveContext` | 获取所有设备状态概览 |
-
-### 使用示例
-
-```bash
 # 关闭书房的灯
 npx mcporter call homeassistant.HassTurnOff area=书房 'domain=["light"]'
 
@@ -216,26 +152,20 @@ npx mcporter call homeassistant.HassClimateSetTemperature area=主卧 temperatur
 npx mcporter call homeassistant.GetLiveContext
 ```
 
-### 注意事项
+## 远程 MCP 服务端要求
 
-- 使用 `area` 参数按房间控制最方便
-- 用 `domain` 过滤设备类型：`light`, `switch`, `fan`, `climate`, `media_player`
-- 部分灯通过智能开关控制（如展柜灯），domain 需用 `switch` 而非 `light`
+如果需要远程调用其他主机上的 MCP 服务，服务端需支持 HTTP transport：
 
-## 实例：自定义远程 MCP 服务
+```javascript
+const server = new McpServer({ name: "my-service", version: "1.0.0" });
 
-如果你有自己的 MCP 服务（如语音助手、通知系统等），可以同样通过 mcporter 接入：
+// Stdio（供本地使用）
+await server.connect(new StdioServerTransport());
 
-```bash
-npx mcporter config add <your-service> \
-  --url http://<remote-host>:<port>/mcp \
-  --scope home
+// HTTP（供远程 mcporter 调用）
+const httpTransport = new StreamableHTTPServerTransport({ endpoint: "/mcp" });
+app.use("/mcp", httpTransport.requestHandler);
+app.listen(Number(process.env.MCP_HTTP_PORT) || 9884);
 ```
 
-接入后在 Agent 工作区的 `TOOLS.md` 中记录工具信息和调用方式，Agent 就能自动发现和使用。
-
-## 前提条件
-
-- 远程主机上的 MCP 服务需保持运行
-- 防火墙允许对应端口入站
-- OpenClaw 主机与远程主机网络可达
+确保防火墙允许对应端口入站，且主机间网络可达。

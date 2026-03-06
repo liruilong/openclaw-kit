@@ -50,8 +50,8 @@
         "api": "openai-completions",
         "models": [
           {
-            "id": "opus-4.6",
-            "name": "Opus 4.6 (WPS)",
+            "id": "claude-opus-4-5",
+            "name": "Claude Opus 4.5 (WPS)",
             "reasoning": true,
             "input": ["text"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
@@ -59,8 +59,8 @@
             "maxTokens": 4096
           },
           {
-            "id": "sonnet-4.6",
-            "name": "Sonnet 4.6 (WPS)",
+            "id": "claude-sonnet-4-5",
+            "name": "Claude Sonnet 4.5 (WPS)",
             "reasoning": true,
             "input": ["text"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
@@ -143,12 +143,12 @@ OpenClaw Gateway → wps-proxy (localhost:3010) → WPS AI 网关（日常聊天
                 → 豆包 Pro（fallback）
 ```
 
-- **日常聊天**：`wps/opus-4.6`（通过 wps-proxy 代理 WPS AI 网关，映射到 claude-opus-4-5）
+- **日常聊天**：`wps/claude-opus-4-5`（通过 wps-proxy 代理 WPS AI 网关）
 - **复杂任务**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
 - **Fallback**：`doubao/doubao-seed-2-0-pro-260215`（代理不可用时兜底）
 - **心跳模型**：`ollama/qwen2:1.5b`（本地运行，独立 session）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
-- **切换命令**：`openclaw models set wps/opus-4.6`（日常）/ `openclaw models set cursor-local/opus-4.6`（复杂）
+- **切换命令**：`openclaw models set wps/claude-opus-4-5`（日常）/ `openclaw models set cursor-local/opus-4.6`（复杂）
 - **wps-proxy 生命周期**：macOS LaunchAgent（`ai.openclaw.wps-proxy`），开机自启、崩溃重启
 
 ### cursor-proxy ACP 模式要点

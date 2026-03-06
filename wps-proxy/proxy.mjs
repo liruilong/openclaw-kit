@@ -59,27 +59,23 @@ const GATEWAY_HEADERS = {
 };
 
 /** 模型映射表：OpenAI model id → WPS 网关参数 */
-const OPUS_45 = {
-  model: "claude-opus-4-5",
-  provider: "aws",
-  version: "20251101-v1:0",
-  extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
-};
-const SONNET_45 = {
-  model: "claude-sonnet-4-5",
-  provider: "aws",
-  version: "20250929-v1:0",
-  extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
-};
 const MODEL_MAP = {
-  "opus-4.6": OPUS_45,
-  "claude-opus-4-5": OPUS_45,
-  "claude-sonnet-4-5": SONNET_45,
-  "sonnet-4.6": SONNET_45,
+  "claude-opus-4-5": {
+    model: "claude-opus-4-5",
+    provider: "aws",
+    version: "20251101-v1:0",
+    extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
+  },
+  "claude-sonnet-4-5": {
+    model: "claude-sonnet-4-5",
+    provider: "aws",
+    version: "20250929-v1:0",
+    extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
+  },
 };
 const DEFAULT_MODEL_KEY = cliArgs.model && cliArgs.model in MODEL_MAP
   ? cliArgs.model
-  : "opus-4.6";
+  : "claude-opus-4-5";
 
 // ──────────────────────────────────────────────
 // 内容处理工具函数

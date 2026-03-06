@@ -4,7 +4,7 @@
 
 ### 新增
 
-- `wps-proxy/` — WPS 内网 AI 网关代理，将 WPS 网关 V2 协议转为 OpenAI 兼容接口，支持 opus-4.6 / sonnet-4.6 统一模型 ID 映射，企业内部零成本
+- `wps-proxy/` — WPS 内网 AI 网关代理，将 WPS 网关 V2 协议转为 OpenAI 兼容接口，直接使用网关原始模型 ID（`claude-opus-4-5`、`claude-sonnet-4-5`），企业内部零成本
 - `wps-proxy` 增加 LaunchAgent 管理（开机自启 + 崩溃重启），Token 改为环境变量必配
 - `docs/02-models.md` 增加方案 D（企业 AI 网关）完整说明，含 hosts 配置、auth-profiles、LaunchAgent 部署、模型切换命令
 - `docs/99-config-snapshot.md` 增加 wps provider 配置段和双代理架构图

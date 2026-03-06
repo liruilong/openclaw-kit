@@ -348,10 +348,9 @@ class ACPClient {
     await this._acquirePromptLock(requestId);
 
     try {
-      const rotateReason = this._shouldRotate();
-      if (rotateReason) {
-        await this.rotateSession(rotateReason);
-      }
+      // 每次请求都创建新 session — OpenClaw 自己管理对话历史，
+      // 复用 ACP session 会导致上下文重复叠加（OpenClaw 历史 + ACP 历史）
+      await this.rotateSession("new_request");
       const sessionId = await this.ensureSession();
       this.totalRequests++;
       this.sessionRequests++;
@@ -382,8 +381,9 @@ class ACPClient {
       }
       this.notificationHandlers.get("session/update").add(onUpdate);
 
-      const PROMPT_IDLE_TIMEOUT_MS = 120000;
+      const PROMPT_IDLE_TIMEOUT_MS = parseInt(process.env.CURSOR_PROMPT_IDLE_TIMEOUT || "180000", 10);
       let lastActivity = Date.now();
+      log("info", `[${requestId}] prompt sent: session=${sessionId}, textLen=${text.length}, est_tokens=${Math.ceil(text.length / CHARS_PER_TOKEN)}`);
 
       this._send("session/prompt", promptParams).then(
         (result) => {

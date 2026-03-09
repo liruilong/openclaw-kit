@@ -1,6 +1,68 @@
-# OpenClaw 配置说明文档
+# openclaw-setup
 
-本项目记录了 OpenClaw AI 助手的完整配置过程与说明。可使用 Cursor 辅助你进行轻松配置。
+OpenClaw AI 助手的完整配置说明文档与代理工具集合。记录了从安装、模型配置、iMessage 集成到 TTS 语音合成的全流程，并包含两个实用的代理服务工具。
+
+属于 **Desk Live 桌面助手生态** 的配置与文档中心。
+
+## 功能
+
+- **全流程配置文档** — 涵盖安装迁移、模型配置、Gateway、iMessage、TTS、MCP 集成、Agent 人设、记忆系统等
+- **cursor-proxy** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API，常驻 ACP 进程，后续请求 2-3 秒响应
+- **wps-proxy** — 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口，企业内部零成本
+- **chrome-ext** — Chrome 浏览器扩展，增强 Dashboard 体验（拖拽文件插入路径、状态徽章等）
+- **多模型方案** — 支持 Cursor Agent、火山引擎（豆包）、WPS 企业网关、Qwen/GLM/DeepSeek 等多种 LLM 接入方案
+- **Cursor Skills** — 内含多个 Cursor 技能定义（知识库查询、需求提取、Token 优化等）
+
+## 技术栈
+
+- **JavaScript / Node.js** — 代理服务
+- **macOS launchd** — 服务管理
+- **OpenAI API 兼容** — 统一 LLM 接入协议
+- **Cursor ACP** — Agent Client Protocol
+
+## 项目结构
+
+```
+openclaw-setup/
+├── README.md                  # 项目总览（本文件）
+├── CHANGELOG.md               # 变更日志
+├── docs/                      # 配置文档
+│   ├── 01-installation.md     # 安装与迁移
+│   ├── 02-models.md           # 模型配置（多方案）
+│   ├── 03-gateway.md          # Gateway 与 Dashboard
+│   ├── 04-imessage.md         # iMessage 频道配置
+│   ├── 05-tts.md              # TTS 语音合成
+│   ├── 06-mcp-integration.md  # MCP 远程工具集成
+│   ├── 07-agent-persona.md    # Agent 人格与规则
+│   ├── 08-memory.md           # 记忆系统
+│   ├── 09-troubleshooting.md  # 常见问题排查
+│   ├── 10-optimization-tips.md # 优化实践
+│   └── 99-config-snapshot.md  # 配置快照
+├── cursor-proxy/              # Cursor Agent ACP 代理服务
+│   ├── streaming-proxy.mjs    # 主程序
+│   ├── package.json
+│   └── README.md
+├── wps-proxy/                 # WPS AI 网关代理
+│   ├── proxy.mjs              # 主程序
+│   ├── package.json
+│   └── README.md
+├── chrome-ext/                # Chrome 浏览器扩展
+│   ├── manifest.json          # Manifest V3
+│   ├── content.js             # 拖拽处理、路径插入
+│   ├── background.js          # Native Messaging 桥接
+│   ├── status-badge.js        # 状态徽章
+│   ├── queue-enhance.js       # 队列增强
+│   └── native-host/           # Native Host 路径解析
+└── .cursor/skills/            # Cursor 技能定义
+    ├── openclaw-deploy/
+    ├── knowledge-base-query/
+    ├── requirement-extraction/
+    ├── token-optimization/
+    ├── brainstorming/
+    ├── mermaid-chart/
+    ├── systematic-debugging/
+    └── writing-plans/
+```
 
 ## 环境概览
 
@@ -31,6 +93,7 @@
 
 - **[cursor-proxy](cursor-proxy/)** — 将 Cursor Agent CLI 封装为 OpenAI 兼容 API 的 ACP 代理服务（常驻进程，2-3秒响应），复用 Cursor 订阅模型，适合复杂任务
 - **[wps-proxy](wps-proxy/)** — 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口，企业内部零成本，适合日常聊天
+- **[chrome-ext](chrome-ext/)** — Chrome 浏览器扩展，增强 Dashboard 交互（拖拽文件插入路径、Native Messaging 路径解析）
 
 ## 文档目录
 
@@ -45,3 +108,14 @@
 - [常见问题与故障排查](docs/09-troubleshooting.md)
 - [优化实践](docs/10-optimization-tips.md)
 - [当前配置快照](docs/99-config-snapshot.md)
+
+## 相关项目
+
+| 项目 | 说明 |
+|------|------|
+| [clawd-workspace](https://github.com/pumpkinpieman/clawd-workspace) | OpenClaw agent workspace |
+| [live-mcp](https://github.com/pumpkinpieman/live-mcp) | MCP Server，AI 控制角色 TTS 和动画 |
+| [live-sync](https://github.com/pumpkinpieman/live-sync) | OpenClaw 对话同步服务 |
+| [live-subtitle](https://github.com/pumpkinpieman/live-subtitle) | 桌面字幕叠加层 |
+| [cwy-bridge](https://github.com/pumpkinpieman/cwy-bridge) | 游戏端角色动画桥接 |
+| [desk-live](https://github.com/pumpkinpieman/desk-live) | Desk Live 桌面助手 monorepo |

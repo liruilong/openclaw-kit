@@ -50,7 +50,7 @@ openclaw onboard   # 交互式向导，需用户在终端中手动操作
 
 ### 方案 A: Cursor Agent ACP 代理（推荐，零额外成本）
 
-通过 `openclaw-cursor-brain` 插件，以 **ACP 常驻进程模式**使用 Cursor 订阅的顶级模型。**零额外费用，后续请求 2-3 秒响应，每月节省 200U+。**
+通过 cursor-proxy 以 **ACP 常驻进程模式**使用 Cursor 订阅的顶级模型。**零额外费用，后续请求 2-3 秒响应，每月节省 200U+。**
 
 #### A.1 安装并登录 Cursor Agent CLI
 
@@ -65,24 +65,19 @@ agent login
 agent --list-models
 ```
 
-#### A.2 安装 openclaw-cursor-brain 插件
+#### A.2 启动 cursor-proxy
 
 ```bash
-# 先 export Keychain 密钥（openclaw CLI 不自动加载）
-export VOLCENGINE_API_KEY=$(security find-generic-password -a "openclaw" -s "VOLCENGINE_API_KEY" -w)
-export OPENCLAW_GATEWAY_TOKEN=$(security find-generic-password -a "openclaw" -s "OPENCLAW_GATEWAY_TOKEN" -w)
-
-# 安装插件
-openclaw plugins install openclaw-cursor-brain
-
-# 重启 Gateway
-openclaw gateway restart
+cd cursor-proxy
+CURSOR_WORKSPACE_DIR=~/.openclaw npm start
 ```
 
-插件自动完成：
+推荐使用 macOS LaunchAgent 管理生命周期（开机自启 + 崩溃重启）。
+
+cursor-proxy 自动完成：
 - 启动 ACP proxy（`agent acp` 常驻进程，`http://127.0.0.1:18790/v1`）
-- 注册 `cursor-local` provider
-- 管理 proxy 生命周期（崩溃自动重启）
+- Session 复用 + 阈值自动轮换 + idle timeout 保护
+- 崩溃自动重启
 
 #### A.3 配置模型
 
@@ -98,17 +93,6 @@ openclaw gateway restart
         "model": "cursor-local/opus-4.6"
       }
     }
-  },
-  "plugins": {
-    "entries": {
-      "openclaw-cursor-brain": {
-        "enabled": true,
-        "config": {
-          "model": "opus-4.6",
-          "fallbackModel": "sonnet-4.6"
-        }
-      }
-    }
   }
 }
 ```
@@ -119,7 +103,7 @@ openclaw gateway restart
 |------|---------|---------|------|
 | 对话（主模型） | `agents.defaults.model` | `cursor-local/opus-4.6` | 面对用户，质量优先 |
 | 开发（子代理） | `agents.defaults.subagents.model` | `cursor-local/opus-4.6` | 代码质量优先（走订阅无额外成本） |
-| 心跳（定时检查） | `agents.defaults.heartbeat.model` | `ollama/qwen2.5:3b` | 本地模型，零成本 |
+| 心跳（定时检查） | `agents.defaults.heartbeat` | `cursor-local/sonnet-4.6` 或 `ollama/qwen2.5:3b` | 订阅模型或本地模型，零/低成本 |
 
 验证：
 
@@ -230,8 +214,8 @@ AI 网关的 Chat 接口不是标准 OpenAI 格式，需配置自定义 provider
         },
         "models": [
           {
-            "id": "doubao-1.5-pro",
-            "name": "Doubao 1.5 Pro (via AI Gateway)",
+            "id": "doubao-seed-2-0-pro-260215",
+            "name": "豆包 2.0 Pro (via AI Gateway)",
             "reasoning": false,
             "input": ["text"],
             "contextWindow": 32768,
@@ -621,15 +605,16 @@ ollama pull qwen2.5:3b
   "agents": {
     "defaults": {
       "heartbeat": {
-        "model": "ollama/qwen2.5:3b",
-        "lightContext": true
+        "every": "30m",
+        "target": "last",
+        "activeHours": { "start": "08:00", "end": "24:00" }
       }
     }
   }
 }
 ```
 
-> `lightContext: true` 使心跳回合仅加载 `HEARTBEAT.md`，不加载完整工作区上下文，进一步减少 Token 消耗。
+> `target: "last"` 让心跳投递到最近活跃的会话；`activeHours` 限制仅在活跃时段运行，避免深夜浪费 Token。
 
 ### 优化三：优先使用订阅而非 API 用量
 

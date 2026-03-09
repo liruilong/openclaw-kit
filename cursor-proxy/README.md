@@ -70,16 +70,19 @@ curl http://localhost:18790/v1/health
 | `CURSOR_PROXY_API_KEY` | 空 | API 密钥认证（空则不验证） |
 | `CURSOR_PROXY_FORWARD_THINKING` | false | 是否转发 thinking 内容 |
 | `CURSOR_PROXY_REQUEST_TIMEOUT` | 300000 | 请求超时（毫秒） |
+| `CURSOR_PROMPT_IDLE_TIMEOUT` | 180000 | ACP 无响应超时（毫秒），超时后中断当前请求 |
+| `CURSOR_SESSION_MAX_REQUESTS` | 50 | 同一 session 最大请求数，达到后自动轮换 |
+| `CURSOR_SESSION_MAX_TOKENS` | 100000 | 同一 session 估算 token 上限，达到后自动轮换 |
+| `CURSOR_SESSION_IDLE_ROTATE` | 2 | 连续 idle timeout 次数阈值，达到后自动轮换 session |
 
-## 与 openclaw-cursor-brain 插件的关系
+## 生命周期管理
 
-`openclaw-cursor-brain` 插件会自动管理本 proxy 的生命周期（随 Gateway 启动/停止）。
-如果使用该插件，**不需要手动启动本 proxy**。
+推荐使用 macOS LaunchAgent 管理 proxy 进程（开机自启 + 崩溃重启）。
 
 手动使用场景：
-- 不使用 openclaw-cursor-brain 插件
 - 调试或开发时需要独立运行
 - 需要在其他项目中复用
+- 不使用 LaunchAgent 的环境
 
 ## ACP 协议参考
 

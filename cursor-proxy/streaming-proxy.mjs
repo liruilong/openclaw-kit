@@ -37,6 +37,8 @@ const SESSION_MAX_REQUESTS = parseInt(process.env.CURSOR_SESSION_MAX_REQUESTS ||
 const SESSION_MAX_ESTIMATED_TOKENS = parseInt(process.env.CURSOR_SESSION_MAX_TOKENS || "100000", 10);
 // 每字符约 0.3 token（中英文混合粗估）
 const CHARS_PER_TOKEN = 3.3;
+// 连续 idle timeout 达到此数量时自动轮换 session（防止堵死的 session 反复重试）
+const SESSION_IDLE_TIMEOUT_ROTATE_THRESHOLD = parseInt(process.env.CURSOR_SESSION_IDLE_ROTATE || "2", 10);
 
 // ── Script identity ─────────────────────────────────────────────────────────
 
@@ -161,6 +163,9 @@ class ACPClient {
     this.sessionRotations = 0;
     this._promptLock = null;
     this._promptLockTime = null;
+    this._consecutiveIdleTimeouts = 0;
+    this._lastAcpActivity = Date.now();
+    this._abortCurrentPrompt = null;
   }
 
   async start() {
@@ -210,7 +215,12 @@ class ACPClient {
     const trimmed = raw.trim();
     if (!trimmed) return;
     let msg;
-    try { msg = JSON.parse(trimmed); } catch { return; }
+    try { msg = JSON.parse(trimmed); } catch {
+      log("debug", `ACP non-JSON line: ${trimmed.slice(0, 200)}`);
+      return;
+    }
+
+    this._lastAcpActivity = Date.now();
 
     // Response to our request
     if (msg.id !== undefined && (msg.result !== undefined || msg.error !== undefined)) {
@@ -235,6 +245,7 @@ class ACPClient {
 
       // Auto-approve permissions
       if (msg.method === "session/request_permission" && msg.id !== undefined) {
+        log("info", `ACP permission request: ${JSON.stringify(msg.params).slice(0, 200)}`);
         this._respond(msg.id, { outcome: { outcome: "selected", optionId: "allow-always" } });
       }
     }
@@ -243,7 +254,7 @@ class ACPClient {
   _send(method, params) {
     const id = this.nextId++;
     const msg = JSON.stringify({ jsonrpc: "2.0", id, method, params }) + "\n";
-    return new Promise((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
       if (!this.child || this.child.killed) {
         reject(new Error("ACP process not running"));
         return;
@@ -251,6 +262,14 @@ class ACPClient {
       this.pending.set(id, { resolve, reject });
       this.child.stdin.write(msg);
     });
+    promise._rpcId = id;
+    return promise;
+  }
+
+  _cancelPending(rpcId) {
+    if (rpcId !== undefined && this.pending.has(rpcId)) {
+      this.pending.delete(rpcId);
+    }
   }
 
   _respond(id, result) {
@@ -297,6 +316,7 @@ class ACPClient {
     this.sessionId = result.sessionId;
     this.sessionRequests = 0;
     this.sessionEstimatedTokens = 0;
+    this._consecutiveIdleTimeouts = 0;
     log("info", `ACP session created: ${this.sessionId}`);
     return this.sessionId;
   }
@@ -306,12 +326,20 @@ class ACPClient {
     this.sessionId = null;
     this.sessionRotations++;
     log("info", `Session rotation (${reason}): old=${oldId}, requests=${this.sessionRequests}, est_tokens=${this.sessionEstimatedTokens}`);
+    if (reason === "consecutive_idle_timeouts") {
+      log("warn", `Consecutive idle timeouts reached ${this._consecutiveIdleTimeouts}, restarting ACP subprocess...`);
+      await this.stop();
+      await new Promise((r) => setTimeout(r, ACP_RESTART_DELAY_MS));
+      await this.start();
+      return this._createNewSession();
+    }
     return this._createNewSession();
   }
 
   _shouldRotate() {
     if (this.sessionRequests >= SESSION_MAX_REQUESTS) return "max_requests";
     if (this.sessionEstimatedTokens >= SESSION_MAX_ESTIMATED_TOKENS) return "max_tokens";
+    if (this._consecutiveIdleTimeouts >= SESSION_IDLE_TIMEOUT_ROTATE_THRESHOLD) return "consecutive_idle_timeouts";
     return null;
   }
 
@@ -326,11 +354,17 @@ class ACPClient {
     while (this._promptLock) {
       const waited = Date.now() - startWait;
       if (waited > LOCK_WAIT_TIMEOUT_MS) {
-        log("warn", `[${requestId}] prompt lock wait timeout (${LOCK_WAIT_TIMEOUT_MS}ms), held by ${this._promptLock}. Force-releasing.`);
+        const oldHolder = this._promptLock;
+        log("warn", `[${requestId}] prompt lock wait timeout (${LOCK_WAIT_TIMEOUT_MS}ms), held by ${oldHolder}. Force-aborting old prompt.`);
+        if (this._abortCurrentPrompt) {
+          this._abortCurrentPrompt();
+        }
         this._promptLock = null;
         break;
       }
-      log("info", `[${requestId}] waiting for prompt lock (held by ${this._promptLock}, ${waited}ms elapsed)`);
+      if (waited % 5000 < 500) {
+        log("info", `[${requestId}] waiting for prompt lock (held by ${this._promptLock}, ${waited}ms elapsed)`);
+      }
       await new Promise((r) => setTimeout(r, 500));
     }
     this._promptLock = requestId;
@@ -368,6 +402,10 @@ class ACPClient {
       let promptDone = false;
       let promptResult = null;
       let promptError = null;
+      let activeToolCalls = new Set();
+      let lastUpdateType = "init";
+      let updateCount = 0;
+      let lastToolActivityTime = 0;
 
       const onUpdate = (msg) => {
         const update = msg.params?.update;
@@ -385,10 +423,22 @@ class ACPClient {
       this.notificationHandlers.get("session/update").add(onUpdate);
 
       const PROMPT_IDLE_TIMEOUT_MS = parseInt(process.env.CURSOR_PROMPT_IDLE_TIMEOUT || "180000", 10);
+      const TOOL_IDLE_TIMEOUT_MS = parseInt(process.env.CURSOR_TOOL_IDLE_TIMEOUT || "600000", 10);
+      const ACP_HARD_TIMEOUT_MS = Math.max(TOOL_IDLE_TIMEOUT_MS, 300000);
+      this._lastAcpActivity = Date.now();
       let lastActivity = Date.now();
+      let aborted = false;
       log("info", `[${requestId}] prompt sent: session=${sessionId}, textLen=${text.length}, est_tokens=${Math.ceil(text.length / CHARS_PER_TOKEN)}`);
 
-      this._send("session/prompt", promptParams).then(
+      this._abortCurrentPrompt = () => {
+        aborted = true;
+        log("warn", `[${requestId}] prompt aborted by lock preemption`);
+        if (updateResolve) { updateResolve(); updateResolve = null; }
+      };
+
+      const promptPromise = this._send("session/prompt", promptParams);
+      const promptRpcId = promptPromise._rpcId;
+      promptPromise.then(
         (result) => {
           promptDone = true;
           promptResult = result;
@@ -406,6 +456,20 @@ class ACPClient {
       const origOnUpdate = onUpdate;
       const trackingOnUpdate = (msg) => {
         lastActivity = Date.now();
+        const update = msg.params?.update;
+        if (update) {
+          updateCount++;
+          lastUpdateType = update.sessionUpdate || "unknown";
+          if (update.sessionUpdate === "tool_call_start" || update.sessionUpdate === "tool_call") {
+            const toolId = update.toolCall?.id || update.toolCall?.toolCallId || `tool_${updateCount}`;
+            activeToolCalls.add(toolId);
+          } else if (update.sessionUpdate === "tool_call_end") {
+            const toolId = update.toolCall?.id || update.toolCall?.toolCallId || `tool_${updateCount}`;
+            activeToolCalls.delete(toolId);
+          } else if (update.sessionUpdate === "tool_call_update") {
+            lastToolActivityTime = Date.now();
+          }
+        }
         origOnUpdate(msg);
       };
       this.notificationHandlers.get("session/update").delete(onUpdate);
@@ -413,6 +477,11 @@ class ACPClient {
 
       try {
         while (true) {
+          if (aborted) {
+            log("info", `[${requestId}] prompt loop exiting due to abort`);
+            yield { _error: { message: "Prompt aborted (preempted by new request)" } };
+            break;
+          }
           while (updateQueue.length > 0) {
             const update = updateQueue.shift();
             if (update.sessionUpdate === "agent_message_chunk" && update.content?.text) {
@@ -421,11 +490,22 @@ class ACPClient {
             yield update;
           }
           if (promptDone) break;
-          const idleMs = Date.now() - lastActivity;
-          if (idleMs > PROMPT_IDLE_TIMEOUT_MS) {
-            log("warn", `[${requestId}] ACP idle timeout (${PROMPT_IDLE_TIMEOUT_MS}ms with no activity), aborting prompt`);
-            yield { _error: { message: `ACP idle timeout after ${Math.round(idleMs / 1000)}s` } };
+          const effectiveLastActivity = Math.max(lastActivity, this._lastAcpActivity, lastToolActivityTime);
+          const idleMs = Date.now() - effectiveLastActivity;
+          const acpIdleMs = Date.now() - this._lastAcpActivity;
+          const hasActiveTools = activeToolCalls.size > 0 || lastUpdateType === "tool_call_update";
+          const effectiveTimeout = hasActiveTools ? TOOL_IDLE_TIMEOUT_MS : PROMPT_IDLE_TIMEOUT_MS;
+          if (idleMs > effectiveTimeout || acpIdleMs > ACP_HARD_TIMEOUT_MS) {
+            this._consecutiveIdleTimeouts++;
+            const toolInfo = hasActiveTools ? `, activeTools=[${[...activeToolCalls].join(",")}]` : "";
+            const reason = acpIdleMs > ACP_HARD_TIMEOUT_MS ? "ACP hard timeout" : "idle timeout";
+            log("warn", `[${requestId}] ${reason} (idle=${Math.round(idleMs/1000)}s, acpIdle=${Math.round(acpIdleMs/1000)}s, lastUpdate=${lastUpdateType}, updates=${updateCount}${toolInfo}), aborting (consecutive=${this._consecutiveIdleTimeouts}/${SESSION_IDLE_TIMEOUT_ROTATE_THRESHOLD})`);
+            yield { _error: { message: `ACP ${reason} after ${Math.round(idleMs / 1000)}s` } };
             break;
+          }
+          if (idleMs > 30000 && idleMs % 30000 < 5000) {
+            const toolInfo = hasActiveTools ? `, tools=[${[...activeToolCalls].join(",")}]` : "";
+            log("debug", `[${requestId}] waiting: idle=${Math.round(idleMs/1000)}s, acpIdle=${Math.round(acpIdleMs/1000)}s, lastUpdate=${lastUpdateType}, updates=${updateCount}${toolInfo}, pending=${this.pending.size}`);
           }
           await new Promise((r) => {
             updateResolve = r;
@@ -448,6 +528,7 @@ class ACPClient {
           yield { _error: promptError };
         }
         if (promptResult) {
+          this._consecutiveIdleTimeouts = 0;
           if (promptResult.stopReason === "max_tokens" || promptResult.stopReason === "length") {
             log("warn", `[${requestId}] stopReason=${promptResult.stopReason}, scheduling session rotation`);
             this.sessionEstimatedTokens = SESSION_MAX_ESTIMATED_TOKENS;
@@ -456,6 +537,12 @@ class ACPClient {
         }
       } finally {
         this.notificationHandlers.get("session/update")?.delete(trackingOnUpdate);
+        if (!promptDone) {
+          this._cancelPending(promptRpcId);
+        }
+        if (this._abortCurrentPrompt) {
+          this._abortCurrentPrompt = null;
+        }
       }
     } finally {
       this._releasePromptLock(requestId);
@@ -482,21 +569,30 @@ class ACPClient {
   }
 
   status() {
+    const now = Date.now();
     return {
       running: this.isReady(),
       pid: this.child?.pid || null,
       sessionId: this.sessionId,
-      uptime: this.startTime ? Math.floor((Date.now() - this.startTime) / 1000) : 0,
+      uptime: this.startTime ? Math.floor((now - this.startTime) / 1000) : 0,
       totalRequests: this.totalRequests,
       pendingRequests: this.pending.size,
+      activePrompt: this._promptLock ? {
+        requestId: this._promptLock,
+        startedAt: this._promptLockTime,
+        elapsed: Math.floor((now - this._promptLockTime) / 1000),
+        lastActivity: Math.floor((now - this._lastAcpActivity) / 1000),
+      } : null,
       session: {
         requests: this.sessionRequests,
         estimatedTokens: this.sessionEstimatedTokens,
         maxRequests: SESSION_MAX_REQUESTS,
         maxTokens: SESSION_MAX_ESTIMATED_TOKENS,
         utilizationPct: Math.round((this.sessionEstimatedTokens / SESSION_MAX_ESTIMATED_TOKENS) * 100),
+        consecutiveIdleTimeouts: this._consecutiveIdleTimeouts,
       },
       sessionRotations: this.sessionRotations,
+      serverTime: now,
     };
   }
 
@@ -761,6 +857,21 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (req.method === "POST" && req.url === "/v1/acp/restart") {
+    try {
+      log("info", "ACP restart requested via API");
+      if (acpClient._abortCurrentPrompt) acpClient._abortCurrentPrompt();
+      await acpClient.stop();
+      await new Promise((r) => setTimeout(r, ACP_RESTART_DELAY_MS));
+      await acpClient.start();
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ ok: true, status: acpClient.status() }));
+    } catch (e) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ error: { message: e.message } }));
+    }
+  }
+
   if (req.method === "POST" && req.url === "/v1/chat/completions") {
     if (!CURSOR_PATH) {
       res.writeHead(500, { "Content-Type": "application/json" });
@@ -810,13 +921,30 @@ async function main() {
   });
 }
 
-function gracefulShutdown(signal) {
+async function gracefulShutdown(signal) {
   log("info", `Received ${signal}, shutting down...`);
+
+  server.close(() => {});
+
+  if (acpClient._promptLock) {
+    const DRAIN_TIMEOUT_MS = 15000;
+    log("info", `Waiting up to ${DRAIN_TIMEOUT_MS / 1000}s for active prompt ${acpClient._promptLock} to finish...`);
+    const start = Date.now();
+    while (acpClient._promptLock && Date.now() - start < DRAIN_TIMEOUT_MS) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    if (acpClient._promptLock) {
+      log("warn", `Drain timeout, aborting active prompt ${acpClient._promptLock}`);
+    } else {
+      log("info", "Active prompt finished, proceeding with shutdown.");
+    }
+  }
+
   acpClient.stop().catch(() => {});
-  server.close(() => {
+  setTimeout(() => {
     log("info", "Shutdown complete.");
     process.exit(0);
-  });
+  }, 1000).unref();
   setTimeout(() => {
     log("warn", "Shutdown timed out, forcing exit.");
     process.exit(1);

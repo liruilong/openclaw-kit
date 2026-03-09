@@ -43,20 +43,21 @@ Analyze collected data against the following checklist:
 
 | Check Item | Optimal State | Problem Indicator |
 |-----------|--------------|-------------------|
-| Heartbeat model | Local model (ollama/*) | Uses cloud model (opus/gpt/gemini via proxy) |
-| lightContext | `true` | `false` or not set |
-| Heartbeat interval | >= 30m | < 30m means higher frequency, more cost |
+| Heartbeat model | Local model (ollama/*) or subscription model | Uses API-billed cloud model |
+| activeHours | Set (e.g., 08:00-22:00) | Not set (runs 24h, wastes tokens at night) |
+| Heartbeat interval | >= 30m (main), >= 10m (watchdog) | Very high frequency without good reason |
 | Ollama running | `curl http://127.0.0.1:11434/api/tags` returns 200 | Connection refused |
 
-If heartbeat uses a cloud model, recommend switching:
+Recommended heartbeat configuration:
 
 ```json
 {
   "agents": {
     "defaults": {
       "heartbeat": {
-        "model": "ollama/qwen2.5:3b",
-        "lightContext": true
+        "every": "30m",
+        "target": "last",
+        "activeHours": { "start": "08:00", "end": "24:00" }
       }
     }
   }

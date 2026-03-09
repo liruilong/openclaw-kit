@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-03-09
+
+### 新增
+
+- `chrome-ext/` — Chrome 浏览器扩展，增强 Dashboard 交互体验（拖拽文件插入路径、状态徽章、队列增强），含 Native Messaging Host（路径解析）
+
+### 修改
+
+- cursor-proxy 新增连续 idle timeout 自动轮换 session（默认 2 次后轮换），解决 ACP session 堵死后请求反复超时的问题
+- cursor-proxy README 补充新增的环境变量说明（`CURSOR_PROMPT_IDLE_TIMEOUT`、`CURSOR_SESSION_MAX_REQUESTS`、`CURSOR_SESSION_MAX_TOKENS`、`CURSOR_SESSION_IDLE_ROTATE`）
+- 配置快照全面更新：豆包升级到 2.0 系列（Pro/Lite/Mini），API 改为 `openai-completions`
+- 心跳架构调整：取消独立 session 隔离方案，改为 `target: "last"` + `activeHours` 模式
+- 新增多 Agent 架构：主 Agent（心跳 1h，Cursor Sonnet）+ watchdog Agent（心跳 10m，Ollama）
+- 工具安全策略完善：新增 `deny`、`exec` 安全配置、`fs.workspaceOnly` 等
+- 新增 TTS、commands、hooks、channels、discovery 等配置段文档
+- plugins 从 `openclaw-cursor-brain` 改为 `imessage`
+- gateway 新增 `controlUi`、`tailscale` 配置，token 改用环境变量
+
 ## 2026-03-06
 
 ### 新增

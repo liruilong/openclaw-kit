@@ -13,7 +13,7 @@
 
 ## 方案 A: Cursor Agent ACP 代理（推荐，零额外成本）
 
-通过 `openclaw-cursor-brain` 插件或独立的 cursor-proxy，以 **ACP 常驻进程模式**将 Cursor 订阅的模型暴露为 OpenAI 兼容 API。**零额外费用，后续请求 2-3 秒响应。**
+通过 cursor-proxy 以 **ACP 常驻进程模式**将 Cursor 订阅的模型暴露为 OpenAI 兼容 API。**零额外费用，后续请求 2-3 秒响应。**
 
 ### 前提条件
 
@@ -29,32 +29,16 @@ OpenClaw → cursor-proxy (localhost:18790) → agent acp (常驻进程) → Cur
 
 > 旧方案 llm-proxy 每次请求 spawn 新进程（13-27秒），ACP 模式使用常驻子进程（2-3秒）。
 
-### 方式一：openclaw-cursor-brain 插件（推荐）
-
-插件自动管理 cursor-proxy 生命周期，无需手动启动。
-
-```bash
-# 安装插件
-export VOLCENGINE_API_KEY=$(security find-generic-password -a "openclaw" -s "VOLCENGINE_API_KEY" -w)
-openclaw plugins install openclaw-cursor-brain
-
-# 重启 Gateway
-openclaw gateway restart
-```
-
-插件会自动：
-- 在 `http://127.0.0.1:18790/v1` 启动 ACP proxy
-- 注册 `cursor-local` provider 到 `openclaw.json`
-- 管理 proxy 生命周期（崩溃自动重启）
-
-### 方式二：独立运行 cursor-proxy
+### 启动 cursor-proxy
 
 ```bash
 cd cursor-proxy
-CURSOR_WORKSPACE_DIR=~/agent-workspace npm start
+CURSOR_WORKSPACE_DIR=~/.openclaw npm start
 ```
 
-然后在 `openclaw.json` 的 `models.providers` 下手动配置：
+推荐使用 macOS LaunchAgent 管理生命周期（开机自启 + 崩溃重启）。
+
+在 `openclaw.json` 的 `models.providers` 下配置：
 
 ```json
 "cursor-local": {
@@ -130,11 +114,11 @@ curl -sf http://127.0.0.1:18790/v1/health
 
 ### 已配置的模型
 
-| 模型 ID | 名称 | 用途 | 上下文窗口 | 最大输出 |
-|---------|------|------|-----------|---------|
-| `doubao-seed-1-8-251228` | Doubao Seed 1.8 | Fallback 模型，支持图片 | 64K | 64K |
-| `doubao-1.5-pro-32k-250115` | Doubao 1.5 Pro | **主模型** | 32K | 12K |
-| `doubao-1.5-lite-32k-250115` | Doubao 1.5 Lite | Heartbeat 轻量模型 | 32K | 4K |
+| 模型 ID | 名称 | 用途 | 上下文窗口 | 最大输出 | 多模态 |
+|---------|------|------|-----------|---------|--------|
+| `doubao-seed-2-0-pro-260215` | 豆包 2.0 Pro | Fallback 模型 | 256K | 8K | 文本+图片 |
+| `doubao-seed-2-0-lite-260215` | 豆包 2.0 Lite | 轻量任务 | 128K | 8K | 文本+图片 |
+| `doubao-seed-2-0-mini-260215` | 豆包 2.0 Mini | 极轻量任务 | 256K | 8K | 文本 |
 
 > 注意：模型 ID 实际上是火山方舟的**推理接入点（Endpoint）ID**，需要先在控制台创建。
 
@@ -142,25 +126,30 @@ curl -sf http://127.0.0.1:18790/v1/health
 
 配置路径：`agents.defaults.model`
 
+当前主模型使用 Cursor，豆包作为 fallback：
+
 ```json
 {
-  "primary": "doubao/doubao-1.5-pro-32k-250115",
-  "fallbacks": ["doubao/doubao-seed-1-8-251228"]
+  "primary": "cursor-local/opus-4.6",
+  "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
 }
 ```
 
 ### Heartbeat 模型
 
-配置路径：`agents.defaults.heartbeat`
+配置路径：`agents.defaults.heartbeat` 和 `agents.list[].heartbeat`
 
 ```json
 {
   "every": "30m",
-  "model": "doubao/doubao-1.5-lite-32k-250115"
+  "target": "last",
+  "activeHours": { "start": "08:00", "end": "24:00" }
 }
 ```
 
-使用 Lite 模型做心跳检查，节省成本。
+- `target: "last"` — 心跳投递到最近活跃的会话
+- `activeHours` — 限制心跳仅在活跃时段运行
+- 各 Agent 可覆盖 heartbeat 配置（如主 Agent 使用 `cursor-local/sonnet-4.6` 每小时心跳）
 
 ### 配置命令
 
@@ -172,10 +161,10 @@ openclaw models list
 openclaw models status
 
 # 设置默认模型
-openclaw models set doubao/doubao-1.5-pro-32k-250115
+openclaw models set cursor-local/opus-4.6
 
 # 添加模型 fallback
-openclaw models fallbacks add doubao/doubao-seed-1-8-251228
+openclaw models fallbacks add doubao/doubao-seed-2-0-pro-260215
 ```
 
 ### 添加新模型

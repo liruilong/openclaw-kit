@@ -41,10 +41,18 @@ OpenClaw 内置了许多 skill，但不是每个都需要。禁用不用的 skil
 
 ## 心跳 Token 优化
 
-- 心跳使用轻量本地模型（如 `ollama/qwen2:1.5b`），配置 `lightContext: true`
-- 心跳运行在独立 session（`"session": "heartbeat"`），不污染主会话
+- 主 Agent 心跳使用 `cursor-local/sonnet-4.6`（每小时），配合 `activeHours` 限制活跃时段（08:00-22:00）
+- watchdog Agent 使用轻量本地模型 `ollama/qwen2:1.5b`（每 10 分钟），运行在独立 session，不污染主会话
+- 心跳配置 `"target": "last"` 可投递到最近活跃的会话，避免创建新 session
 - `HEARTBEAT.md` 保持精简，减少每次心跳的 token 消耗
 - 无事可做时直接回复 `HEARTBEAT_OK`，不做多余操作
+
+## ACP Session 稳定性
+
+- cursor-proxy 支持 session 阈值轮换（请求数/估算 token 达到上限时自动换新 session）
+- **连续 idle timeout 自动轮换**：ACP session 堵死后，连续 N 次 idle timeout（默认 2 次）自动创建新 session，避免死循环
+- 通过 `CURSOR_SESSION_IDLE_ROTATE` 环境变量调整阈值
+- 通过 `POST /v1/session/rotate` 手动触发 session 轮换
 
 ## Agent 工作区文件规范
 

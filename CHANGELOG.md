@@ -16,7 +16,7 @@
   - 默认模型改为 `wps/claude-opus-4-5`，fallback 链 `cursor-local/opus-4.6` → `cursor-local/sonnet-4.6` → `wps/claude-sonnet-4-5`
   - 移除 doubao provider（已不使用）
   - ollama 模型更新为 `qwen2.5:3b`，API 改为 `ollama`
-  - Agent 列表更新为 4 个：Miku(main) / Coder / 产品文案专家 / 金山文档转换
+  - Agent 列表更新为 4 个：<名称>(main) / Coder / 产品文案专家 / 金山文档转换
   - channels 从 `imessage` 改为 `agentspace`（含 wps_sid 认证）
   - plugins 从 `imessage` 改为 `agentspace`
   - 补充工具安全策略：`deny`、`elevated`、`exec`（safeBins + safeBinProfiles + safeBinTrustedDirs）、`fs.workspaceOnly`
@@ -94,3 +94,10 @@
 - `docs/08-memory.md` — 记忆系统（含 Ollama embedding 配置）
 - `docs/09-troubleshooting.md` — 常见问题排查
 - `docs/99-config-snapshot.md` — 配置快照
+
+### 修改（工作区迁移）
+
+- 工作区路径从 `~/clawd` 迁移到 `~/agents/<agent-name>` 目录结构（按 Agent 名组织，支持多 Agent 扩展）
+- `docs/07-agent-persona.md` 重写：新增多 Agent 目录结构、TODO 管理规则、专用 Agent 注册示例
+- `docs/11-todo-monitor.md` 更新：TODO 完成后改为删除行（而非打勾），减轻 heartbeat 负担；路径全部更新为新目录结构
+- `docs/99-config-snapshot.md` 同步 workspace 路径变更

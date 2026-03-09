@@ -124,7 +124,7 @@
           "cursor-local/sonnet-4.6"
         ]
       },
-      "workspace": "~/clawd",
+      "workspace": "~/agents/<agent-name>",
       "bootstrapMaxChars": 40000,
       "memorySearch": {
         "provider": "openai",
@@ -149,7 +149,7 @@
     "list": [
       {
         "id": "main",
-        "identity": { "name": "Miku", "emoji": "🎤" }
+        "identity": { "name": "<名称>", "emoji": "🎤" }
       },
       {
         "id": "coder",
@@ -285,7 +285,7 @@ OpenClaw Gateway → wps-proxy (localhost:3010) → WPS AI 网关（日常聊天
 
 | Agent | 身份 | 默认模型 | 工作目录 | 用途 |
 |-------|------|---------|---------|------|
-| 🎤 **Miku** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/clawd` | 日常聊天、通用任务 |
+| 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/clawd` | 日常聊天、通用任务 |
 | 💻 **Coder** | 写代码 | `cursor-local/opus-4.6` | `~/workspace` | 编码、调试、代码审查 |
 | ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-5` | — | 产品文案撰写 |
 | 📄 **金山文档转换** | 文档处理 | `wps/claude-sonnet-4-5` | — | 金山文档格式转换 |

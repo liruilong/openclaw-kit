@@ -1,17 +1,18 @@
 (() => {
   "use strict";
 
-  const HEALTH_URL = "http://127.0.0.1:18790/v1/health";
-  const RESTART_URL = "http://127.0.0.1:18790/v1/acp/restart";
+  // 尝试多个可能的 cursor-proxy 端口
+  const CANDIDATE_PORTS = [18790, 41219];
   const POLL_WORKING_MS = 2000;
   const POLL_IDLE_MS = 5000;
   const BADGE_ID = "oc-status-badge";
-  const IDLE_HIDE_DELAY = 8000;
 
   let pollTimer = null;
   let lastRendered = null;
-  let idleHideTimer = null;
   let restarting = false;
+  let activePort = null;
+  let HEALTH_URL = null;
+  let RESTART_URL = null;
 
   function fmt(seconds) {
     if (seconds < 60) return `${seconds}s`;
@@ -20,8 +21,26 @@
     return s > 0 ? `${m}m${s}s` : `${m}m`;
   }
 
+  async function detectPort() {
+    for (const port of CANDIDATE_PORTS) {
+      try {
+        const res = await fetch(`http://127.0.0.1:${port}/v1/health`, { signal: AbortSignal.timeout(1000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.acp !== undefined || data.running !== undefined) {
+            activePort = port;
+            HEALTH_URL = `http://127.0.0.1:${port}/v1/health`;
+            RESTART_URL = `http://127.0.0.1:${port}/v1/acp/restart`;
+            return true;
+          }
+        }
+      } catch {}
+    }
+    return false;
+  }
+
   async function restartAcp() {
-    if (restarting) return;
+    if (restarting || !RESTART_URL) return;
     restarting = true;
     render({ phase: "restarting", text: "正在重启 ACP…", icon: "⟳", color: "yellow" });
     try {
@@ -42,7 +61,7 @@
 
   function deriveState(data) {
     if (!data || data.status === "degraded" || !data.acp?.running) {
-      return { phase: "offline", text: "Agent 离线", icon: "⏹", color: "red" };
+      return null; // cursor-proxy 不可用，不显示徽章
     }
 
     const acp = data.acp;
@@ -105,6 +124,11 @@
     return el;
   }
 
+  function hideBadge() {
+    const el = document.getElementById(BADGE_ID);
+    if (el) el.classList.add("oc-badge--hidden");
+  }
+
   function render(state) {
     const key = `${state.phase}:${state.text}`;
     if (lastRendered === key) return;
@@ -120,21 +144,27 @@
 
     const btn = badge.querySelector(".oc-badge__restart");
     if (btn) btn.addEventListener("click", restartAcp);
-
-    clearTimeout(idleHideTimer);
   }
 
   let currentInterval = POLL_IDLE_MS;
 
   async function poll() {
     if (restarting) return;
+    if (!HEALTH_URL) return;
+
     let state;
     try {
       const res = await fetch(HEALTH_URL, { signal: AbortSignal.timeout(2000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) { hideBadge(); return; }
       state = deriveState(await res.json());
     } catch {
-      state = { phase: "offline", text: "Proxy 不可达", icon: "⏹", color: "red" };
+      hideBadge();
+      return;
+    }
+
+    if (!state) {
+      hideBadge();
+      return;
     }
 
     render(state);
@@ -150,11 +180,16 @@
     }
   }
 
-  function activate() {
+  async function activate() {
     if (!document.querySelector("openclaw-app")) return;
+    const found = await detectPort();
+    if (!found) {
+      console.log("[OC Status] cursor-proxy not detected, badge disabled");
+      return;
+    }
+    console.log(`[OC Status] cursor-proxy detected on port ${activePort}`);
     poll();
     pollTimer = setInterval(poll, currentInterval);
-    console.log("[OC Status] Badge active — polling", HEALTH_URL);
   }
 
   function waitForApp() {

@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 """
 Native Messaging host for OpenClaw file drop.
-Receives filenames from the Chrome extension, finds their full paths
-from recent Finder drag events via the macOS pasteboard / FSEvents.
-
-Fallback: search common directories for matching filenames.
+Receives filenames from the Chrome extension, finds their full paths.
 """
 
 import json
@@ -15,11 +12,11 @@ import subprocess
 
 
 SEARCH_DIRS = [
+    os.path.expanduser("~/agents"),
     os.path.expanduser("~/workspace"),
     os.path.expanduser("~/Downloads"),
     os.path.expanduser("~/Documents"),
     os.path.expanduser("~/Desktop"),
-    os.path.expanduser("~/agent-workspace"),
 ]
 
 MAX_DEPTH = 5
@@ -42,7 +39,6 @@ def send_message(obj):
 
 
 def find_via_mdfind(filename):
-    """Use macOS Spotlight to find the file."""
     try:
         result = subprocess.run(
             ["mdfind", "-name", filename, "-onlyin", os.path.expanduser("~")],
@@ -60,7 +56,6 @@ def find_via_mdfind(filename):
 
 
 def find_in_dirs(filename):
-    """Walk common directories to find the file."""
     for base in SEARCH_DIRS:
         if not os.path.isdir(base):
             continue
@@ -69,14 +64,10 @@ def find_in_dirs(filename):
             if depth >= MAX_DEPTH:
                 dirs.clear()
                 continue
-            if filename in files or filename in dirs:
+            if filename in files:
                 return os.path.join(root, filename)
-            full_match = [f for f in files if f == filename]
-            if full_match:
-                return os.path.join(root, full_match[0])
-            dir_match = [d for d in dirs if d == filename]
-            if dir_match:
-                return os.path.join(root, dir_match[0])
+            if filename in dirs:
+                return os.path.join(root, filename)
     return None
 
 

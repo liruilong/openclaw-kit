@@ -1,6 +1,6 @@
 # 当前配置快照
 
-> 截取于 2026-03-09，已集成 wps-proxy（WPS AI 网关）+ cursor-proxy ACP（Cursor 订阅模型）双代理架构 + 工具安全策略
+> 截取于 2026-03-09（v2），已集成 wps-proxy（WPS AI 网关 6 模型）+ cursor-proxy ACP（Cursor 订阅模型）双代理架构 + 工具安全策略
 
 ## openclaw.json
 
@@ -41,6 +41,15 @@
         "api": "openai-completions",
         "models": [
           {
+            "id": "claude-opus-4-6",
+            "name": "Claude Opus 4.6 (WPS)",
+            "reasoning": true,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 16384
+          },
+          {
             "id": "claude-opus-4-5",
             "name": "Claude Opus 4.5 (WPS)",
             "reasoning": true,
@@ -53,6 +62,33 @@
             "id": "claude-sonnet-4-5",
             "name": "Claude Sonnet 4.5 (WPS)",
             "reasoning": true,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 4096
+          },
+          {
+            "id": "claude-sonnet-4",
+            "name": "Claude Sonnet 4 (WPS)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 4096
+          },
+          {
+            "id": "claude-3-7-sonnet",
+            "name": "Claude 3.7 Sonnet (WPS)",
+            "reasoning": false,
+            "input": ["text"],
+            "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+            "contextWindow": 200000,
+            "maxTokens": 4096
+          },
+          {
+            "id": "claude-3-5-haiku",
+            "name": "Claude 3.5 Haiku (WPS)",
+            "reasoning": false,
             "input": ["text"],
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
             "contextWindow": 200000,
@@ -80,11 +116,12 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "wps/claude-opus-4-5",
+        "primary": "wps/claude-opus-4-6",
         "fallbacks": [
+          "wps/claude-opus-4-5",
           "cursor-local/opus-4.6",
-          "cursor-local/sonnet-4.6",
-          "wps/claude-sonnet-4-5"
+          "wps/claude-sonnet-4-5",
+          "cursor-local/sonnet-4.6"
         ]
       },
       "workspace": "~/clawd",
@@ -99,7 +136,7 @@
       },
       "compaction": { "mode": "safeguard" },
       "heartbeat": {
-        "model": "wps/claude-sonnet-4-5",
+        "model": "wps/claude-3-5-haiku",
         "session": "heartbeat",
         "lightContext": true
       },
@@ -230,15 +267,15 @@
 ### 模型架构
 
 ```
-OpenClaw Gateway → wps-proxy (localhost:3010) → WPS AI 网关（日常聊天，企业零成本）
+OpenClaw Gateway → wps-proxy (localhost:3010) → WPS AI 网关（日常聊天，企业零成本，6 个 Claude 模型）
                 → cursor-proxy ACP (localhost:18790) → agent acp → Cursor 订阅模型（复杂任务）
-                → Ollama (localhost:11434) → Qwen 2.5 3B（心跳专用）
+                → Ollama (localhost:11434) → Qwen 2.5 3B（Embedding 专用）
 ```
 
-- **日常聊天**：`wps/claude-opus-4-5`（默认模型，通过 wps-proxy 代理 WPS AI 网关）
-- **复杂任务**：`cursor-local/opus-4.6`（fallback #1，通过 ACP 常驻进程代理 Cursor Agent CLI）
-- **Fallback 链**：`cursor-local/opus-4.6` → `cursor-local/sonnet-4.6` → `wps/claude-sonnet-4-5`
-- **心跳模型**：`wps/claude-sonnet-4-5`（独立 session，轻上下文模式，负责 TODO 检查和转发）
+- **日常聊天**：`wps/claude-opus-4-6`（默认模型，WPS 网关 Opus 4.6）
+- **复杂任务**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
+- **Fallback 链**：`wps/claude-opus-4-5` → `cursor-local/opus-4.6` → `wps/claude-sonnet-4-5` → `cursor-local/sonnet-4.6`
+- **心跳模型**：`wps/claude-3-5-haiku`（独立 session，轻上下文模式，低成本 TODO 检查和转发）
 - **子代理模型**：`cursor-local/sonnet-4.6`（自动分配给子 agent）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
 - **切换命令**：`openclaw models set wps/claude-opus-4-5`（日常）/ `openclaw models set cursor-local/opus-4.6`（复杂）
@@ -248,7 +285,7 @@ OpenClaw Gateway → wps-proxy (localhost:3010) → WPS AI 网关（日常聊天
 
 | Agent | 身份 | 默认模型 | 工作目录 | 用途 |
 |-------|------|---------|---------|------|
-| 🎤 **Miku** (main) | 默认 Agent | `wps/claude-opus-4-5` | `~/clawd` | 日常聊天、通用任务 |
+| 🎤 **Miku** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/clawd` | 日常聊天、通用任务 |
 | 💻 **Coder** | 写代码 | `cursor-local/opus-4.6` | `~/workspace` | 编码、调试、代码审查 |
 | ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-5` | — | 产品文案撰写 |
 | 📄 **金山文档转换** | 文档处理 | `wps/claude-sonnet-4-5` | — | 金山文档格式转换 |
@@ -308,5 +345,5 @@ mcporter 管理不经过 Cursor IDE 的通用 MCP 工具，配置文件位于 `~
 - **llm-proxy**（spawn 模式）：每次请求 spawn 新 `agent -p` 进程，13-27 秒延迟，已被 ACP 模式替代
 - **cliBackends**：OpenClaw 原生 CLI Backend，存在 transcript 持久化问题，已弃用
 - **openclaw-cursor-brain 插件**：早期通过插件管理 cursor-proxy 生命周期，已改为 LaunchAgent 管理
-- **心跳 ollama 模型**：早期心跳使用 `ollama/qwen2.5:3b` 本地模型，因 ≤7B 模型无法可靠执行多步工具调用链，已改为 `wps/claude-sonnet-4-5`
+- **心跳 ollama 模型**：早期心跳使用 `ollama/qwen2.5:3b` 本地模型，因 ≤7B 模型无法可靠执行多步工具调用链，先改为 `wps/claude-sonnet-4-5`，后优化为更低成本的 `wps/claude-3-5-haiku`
 - **心跳驱动 TODO 监控**：通过 cron job + HEARTBEAT.md 指令实现 heartbeat 检查 → exec 唤醒主 session 处理，详见 [docs/11-todo-monitor.md](./11-todo-monitor.md)

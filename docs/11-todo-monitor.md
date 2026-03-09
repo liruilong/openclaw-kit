@@ -7,7 +7,7 @@
 
 ```
 cron (每 30 分钟)
-  → system event 触发 heartbeat session（Sonnet，lightContext）
+  → system event 触发 heartbeat session（Haiku，lightContext）
     → 读取 HEARTBEAT.md 指令
     → read todo.md 检查是否有 - [ ] 项
     → 有待办？用 exec 调用 openclaw agent 唤醒主 session
@@ -82,16 +82,16 @@ openclaw cron add \
   --session main \
   --wake now \
   --system-event "TODO 定时检查：请按 HEARTBEAT.md 中的步骤执行。" \
-  --model wps/claude-sonnet-4-5 \
+  --model wps/claude-3-5-haiku \
   --timeout-seconds 120
 ```
 
 ### 4. 配置 heartbeat 模型
 
-heartbeat 默认使用 `wps/claude-sonnet-4-5`（需要工具调用能力，本地小模型 ≤7B 无法可靠执行多步骤流程）：
+heartbeat 默认使用 `wps/claude-3-5-haiku`（成本最低的 Claude 模型，足以完成多步骤工具调用链；本地小模型 ≤7B 无法可靠执行）：
 
 ```bash
-openclaw config set agents.defaults.heartbeat.model wps/claude-sonnet-4-5
+openclaw config set agents.defaults.heartbeat.model wps/claude-3-5-haiku
 openclaw gateway restart
 ```
 
@@ -130,7 +130,7 @@ SKILL_EOF
 
 | 层 | Session | lightContext | 模型 | 职责 | Token 消耗 |
 |----|---------|-------------|------|------|-----------|
-| 检查层 | heartbeat | `true` | Sonnet（便宜） | 读 todo.md → 判断 → exec 转发 | ~20k/次 |
+| 检查层 | heartbeat | `true` | Haiku（最便宜） | 读 todo.md → 判断 → exec 转发 | ~5k/次 |
 | 执行层 | main | `false` | Opus（强大） | 接收转发 → 处理任务 → 标记完成 | 按需 |
 
 ### 为什么不用本地模型
@@ -142,6 +142,7 @@ SKILL_EOF
 | `qwen2.5:3b` | 1.8 GB | ❌ | read 工具参数传不对，跳过 TODO 检查 |
 | `qwen2.5:7b` | 4.4 GB | ❌ | 能读 HEARTBEAT.md 但不按指令继续执行 |
 | `wps/claude-sonnet-4-5` | 云端 | ✅ | 正确执行所有步骤 |
+| `wps/claude-3-5-haiku` | 云端 | ✅ | 正确执行，成本更低（推荐） |
 
 heartbeat 的任务看似简单，但实际是多步骤工具调用链（读文件 A → 理解指令 → 读文件 B → 条件判断 → 执行 exec），对小模型的指令遵循能力要求较高。
 

@@ -60,6 +60,12 @@ const GATEWAY_HEADERS = {
 
 /** 模型映射表：OpenAI model id → WPS 网关参数 */
 const MODEL_MAP = {
+  "claude-opus-4-6": {
+    model: "claude-opus-4-6-v1",
+    provider: "aws",
+    version: "",
+    extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
+  },
   "claude-opus-4-5": {
     model: "claude-opus-4-5",
     provider: "aws",
@@ -72,10 +78,28 @@ const MODEL_MAP = {
     version: "20250929-v1:0",
     extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
   },
+  "claude-sonnet-4": {
+    model: "claude-sonnet-4",
+    provider: "aws",
+    version: "20250514-v1:0",
+    extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
+  },
+  "claude-3-7-sonnet": {
+    model: "claude-3-7-sonnet",
+    provider: "aws",
+    version: "20250219-v1:0",
+    extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
+  },
+  "claude-3-5-haiku": {
+    model: "claude-3-5-haiku",
+    provider: "aws",
+    version: "20241022-v1:0",
+    extArgs: { stop_sequences: [], anthropic_version: "bedrock-2023-05-31" },
+  },
 };
 const DEFAULT_MODEL_KEY = cliArgs.model && cliArgs.model in MODEL_MAP
   ? cliArgs.model
-  : "claude-opus-4-5";
+  : "claude-opus-4-6";
 
 // ──────────────────────────────────────────────
 // 内容处理工具函数

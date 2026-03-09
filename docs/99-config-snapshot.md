@@ -39,22 +39,19 @@
       "wps": {
         "baseUrl": "http://127.0.0.1:<proxy-port>/v1",
         "api": "openai-completions",
-        "comment": "V3 协议 — 14 个模型（Claude/GPT-5/Gemini/DeepSeek/Kimi），零成本",
+        "comment": "V3 协议 — proxy 层 14 模型，OpenClaw 注册 12 个（Claude/GPT-5/Gemini/DeepSeek），零成本",
         "models": [
           { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 16384 },
           { "id": "claude-opus-4-5", "name": "Claude Opus 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
           { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+          { "id": "claude-sonnet-4", "name": "Claude Sonnet 4 (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
           { "id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
           { "id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
           { "id": "gpt-5", "name": "GPT-5 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
           { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro (WPS)", "reasoning": true, "contextWindow": 1048576, "maxTokens": 65536 },
           { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (WPS)", "contextWindow": 1048576, "maxTokens": 65536 },
           { "id": "deepseek-v3.2", "name": "DeepSeek V3.2 (WPS)", "contextWindow": 128000, "maxTokens": 8192 },
-          { "id": "deepseek-reasoner", "name": "DeepSeek R1 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 },
-          { "id": "o3", "name": "o3 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
-          { "id": "gpt-5-mini", "name": "GPT-5 Mini (WPS)", "contextWindow": 128000, "maxTokens": 16384 },
-          { "id": "gpt-4.1", "name": "GPT-4.1 (WPS)", "contextWindow": 128000, "maxTokens": 16384 },
-          { "id": "kimi-k2.5", "name": "Kimi K2.5 (WPS)", "contextWindow": 131072, "maxTokens": 8192 }
+          { "id": "deepseek-reasoner", "name": "DeepSeek R1 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 }
         ]
       },
       "ollama": {
@@ -85,7 +82,16 @@
           "cursor-local/sonnet-4.6"
         ]
       },
-      "workspace": "~/agents/<agent-name>",
+      "models": {
+        "wps/claude-opus-4-6": {}, "wps/claude-opus-4-5": {},
+        "wps/claude-sonnet-4-5": {}, "wps/gpt-5": {},
+        "wps/gemini-2.5-pro": {}, "wps/deepseek-reasoner": {},
+        "cursor-local/opus-4.6": {}, "cursor-local/sonnet-4.6": {},
+        "wps/claude-sonnet-4": {}, "wps/claude-3-7-sonnet": {},
+        "wps/claude-3-5-haiku": {}, "wps/gemini-2.5-flash": {},
+        "wps/deepseek-v3.2": {}
+      },
+      "workspace": "~/agents/miku",
       "bootstrapMaxChars": 40000,
       "memorySearch": {
         "provider": "openai",
@@ -115,16 +121,12 @@
       {
         "id": "coder",
         "workspace": "~/workspace",
-        "model": {
-          "primary": "cursor-local/opus-4.6",
-          "fallbacks": ["wps/claude-opus-4-5", "cursor-local/sonnet-4.6", "wps/claude-sonnet-4-5"]
-        },
         "identity": { "name": "Coder", "emoji": "💻" }
       },
       {
         "id": "product-writer",
         "model": {
-          "primary": "wps/claude-opus-4-5",
+          "primary": "wps/claude-opus-4-6",
           "fallbacks": ["wps/claude-sonnet-4-5"]
         },
         "identity": { "name": "产品文案专家", "emoji": "✍️" }
@@ -132,7 +134,7 @@
       {
         "id": "kdocs-converter",
         "model": {
-          "primary": "wps/claude-sonnet-4-5",
+          "primary": "cursor-local/sonnet-4.6",
           "fallbacks": ["wps/claude-opus-4-5"]
         },
         "identity": { "name": "金山文档转换", "emoji": "📄" }
@@ -237,7 +239,7 @@ OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（Open
 - **复杂任务**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
 - **Fallback 链**：`wps/claude-opus-4-5` → `cursor-local/opus-4.6` → `wps/claude-sonnet-4-5` → `cursor-local/sonnet-4.6`
 - **心跳模型**：`wps/claude-3-5-haiku`（独立 session，轻上下文模式，低成本 TODO 检查和转发）
-- **可用模型**：Claude (5) / GPT-5 (3) / Gemini (2) / DeepSeek (2) / Kimi (1) / o3 (1) = 14 个
+- **OpenClaw 注册模型**：Claude (6) / GPT-5 (1) / Gemini (2) / DeepSeek (2) = 11 个（proxy 层另有 o3/gpt-5-mini/gpt-4.1/kimi-k2.5 共 14 个）
 - **子代理模型**：`cursor-local/sonnet-4.6`（自动分配给子 agent）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
 - **切换命令**：`openclaw models set wps/claude-opus-4-5`（日常）/ `openclaw models set cursor-local/opus-4.6`（复杂）
@@ -247,10 +249,10 @@ OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（Open
 
 | Agent | 身份 | 默认模型 | 工作目录 | 用途 |
 |-------|------|---------|---------|------|
-| 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/clawd` | 日常聊天、通用任务 |
-| 💻 **Coder** | 写代码 | `cursor-local/opus-4.6` | `~/workspace` | 编码、调试、代码审查 |
-| ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-5` | — | 产品文案撰写 |
-| 📄 **金山文档转换** | 文档处理 | `wps/claude-sonnet-4-5` | — | 金山文档格式转换 |
+| 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/agents/miku` | 日常聊天、通用任务 |
+| 💻 **Coder** | 写代码 | 继承默认（`wps/claude-opus-4-6`） | `~/workspace` | 编码、调试、代码审查 |
+| ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-6` | — | 产品文案撰写 |
+| 📄 **金山文档转换** | 文档处理 | `cursor-local/sonnet-4.6` | — | 金山文档格式转换 |
 
 ### 工具安全策略
 

@@ -5,18 +5,27 @@
 ### 新增
 
 - `chrome-ext/` — Chrome 浏览器扩展，增强 Dashboard 交互体验（拖拽文件插入路径、状态徽章、队列增强），含 Native Messaging Host（路径解析）
+- `docs/11-todo-monitor.md` — 心跳驱动 TODO 监控方案文档，含架构说明、配置步骤、踩坑记录和本地模型评测
 
 ### 修改
 
 - cursor-proxy 新增连续 idle timeout 自动轮换 session（默认 2 次后轮换），解决 ACP session 堵死后请求反复超时的问题
 - cursor-proxy README 补充新增的环境变量说明（`CURSOR_PROMPT_IDLE_TIMEOUT`、`CURSOR_SESSION_MAX_REQUESTS`、`CURSOR_SESSION_MAX_TOKENS`、`CURSOR_SESSION_IDLE_ROTATE`）
-- 配置快照全面更新：豆包升级到 2.0 系列（Pro/Lite/Mini），API 改为 `openai-completions`
-- 心跳架构调整：取消独立 session 隔离方案，改为 `target: "last"` + `activeHours` 模式
-- 新增多 Agent 架构：主 Agent（心跳 1h，Cursor Sonnet）+ watchdog Agent（心跳 10m，Ollama）
-- 工具安全策略完善：新增 `deny`、`exec` 安全配置、`fs.workspaceOnly` 等
-- 新增 TTS、commands、hooks、channels、discovery 等配置段文档
-- plugins 从 `openclaw-cursor-brain` 改为 `imessage`
-- gateway 新增 `controlUi`、`tailscale` 配置，token 改用环境变量
+- 配置快照同步运行时实际配置：
+  - 默认模型改为 `wps/claude-opus-4-5`，fallback 链 `cursor-local/opus-4.6` → `cursor-local/sonnet-4.6` → `wps/claude-sonnet-4-5`
+  - 移除 doubao provider（已不使用）
+  - ollama 模型更新为 `qwen2.5:3b`，API 改为 `ollama`
+  - Agent 列表更新为 4 个：Miku(main) / Coder / 产品文案专家 / 金山文档转换
+  - channels 从 `imessage` 改为 `agentspace`（含 wps_sid 认证）
+  - plugins 从 `imessage` 改为 `agentspace`
+  - 补充工具安全策略：`deny`、`elevated`、`exec`（safeBins + safeBinProfiles + safeBinTrustedDirs）、`fs.workspaceOnly`
+  - 补充 `skills.entries`（禁用 weather/gemini/openai-image-gen）
+  - 心跳改为 `ollama/qwen2.5:3b` + 独立 session + 轻上下文
+- 修复 coder agent fallback 拼写错误（`wps/opus-4-5` → `wps/claude-opus-4-5`）
+- 配置快照同步心跳驱动 TODO 监控相关变更：
+  - heartbeat 模型从 `ollama/qwen2.5:3b` 改为 `wps/claude-sonnet-4-5`（本地 ≤7B 模型无法可靠执行多步工具调用链）
+  - `tools.deny` 从 `["group:runtime", "sessions_spawn", "sessions_send"]` 精简为 `["sessions_spawn"]`（开放 exec 供 heartbeat 转发）
+  - `safeBins` 新增 `openclaw`（允许 heartbeat 通过 exec 调用 `openclaw agent` 唤醒主 session）
 
 ## 2026-03-06
 

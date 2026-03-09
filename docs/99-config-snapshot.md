@@ -91,7 +91,7 @@
         "wps/claude-3-5-haiku": {}, "wps/gemini-2.5-flash": {},
         "wps/deepseek-v3.2": {}
       },
-      "workspace": "~/agents/miku",
+      "workspace": "~/agents/<agent-name>",
       "bootstrapMaxChars": 40000,
       "memorySearch": {
         "provider": "openai",
@@ -249,7 +249,7 @@ OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（Open
 
 | Agent | 身份 | 默认模型 | 工作目录 | 用途 |
 |-------|------|---------|---------|------|
-| 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/agents/miku` | 日常聊天、通用任务 |
+| 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/agents/<agent-name>` | 日常聊天、通用任务 |
 | 💻 **Coder** | 写代码 | 继承默认（`wps/claude-opus-4-6`） | `~/workspace` | 编码、调试、代码审查 |
 | ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-6` | — | 产品文案撰写 |
 | 📄 **金山文档转换** | 文档处理 | `cursor-local/sonnet-4.6` | — | 金山文档格式转换 |

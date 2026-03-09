@@ -6,7 +6,12 @@
 
 - `chrome-ext/` — Chrome 浏览器扩展，增强 Dashboard 交互体验（拖拽文件插入路径、状态徽章、队列增强），含 Native Messaging Host（路径解析）
 - `docs/11-todo-monitor.md` — 心跳驱动 TODO 监控方案文档，含架构说明、配置步骤、踩坑记录和本地模型评测
-- wps-proxy 新增 4 个模型映射：`claude-opus-4-6`（→ 网关 `claude-opus-4-6-v1`）、`claude-sonnet-4`、`claude-3-7-sonnet`、`claude-3-5-haiku`，默认模型从 `claude-opus-4-5` 升级为 `claude-opus-4-6`
+- **wps-proxy 重写为 V3 协议**（完全兼容 OpenAI API，不再需要格式转换），支持 14 个模型：
+  - Claude: opus-4-6、opus-4-5、sonnet-4-5、3-7-sonnet、3-5-haiku
+  - Azure: gpt-5、gpt-5-mini、gpt-4.1、o3
+  - Google: gemini-2.5-pro、gemini-2.5-flash
+  - DeepSeek: v3.2、reasoner
+  - Moonshot: kimi-k2.5
 
 ### 修改
 
@@ -27,10 +32,11 @@
   - heartbeat 模型从 `ollama/qwen2.5:3b` → `wps/claude-sonnet-4-5` → `wps/claude-3-5-haiku`（成本更低，Haiku 足够执行心跳多步工具调用链）
   - `tools.deny` 从 `["group:runtime", "sessions_spawn", "sessions_send"]` 精简为 `["sessions_spawn"]`（开放 exec 供 heartbeat 转发）
   - `safeBins` 新增 `openclaw`（允许 heartbeat 通过 exec 调用 `openclaw agent` 唤醒主 session）
-- 配置快照同步模型升级：
-  - 默认模型从 `wps/claude-opus-4-5` 升级为 `wps/claude-opus-4-6`（WPS 网关已支持 `claude-opus-4-6-v1`）
-  - WPS provider 新增 4 个模型定义（opus-4-6、sonnet-4、3-7-sonnet、3-5-haiku），共 6 个可用模型
-  - fallback 链调整为 `wps/claude-opus-4-5` → `cursor-local/opus-4.6` → `wps/claude-sonnet-4-5` → `cursor-local/sonnet-4.6`
+- 配置快照同步模型升级（V3 协议）：
+  - wps-proxy 升级为 V3 协议（完全兼容 OpenAI API，无需格式转换）
+  - WPS provider 扩展至 14 个模型（Claude/GPT-5/Gemini/DeepSeek/Kimi/o3），全部企业零成本
+  - 默认模型 `wps/claude-opus-4-6`，fallback 链 `opus-4-5` → `cursor/opus-4.6` → `sonnet-4-5` → `cursor/sonnet-4.6`
+  - 新增 V3 特性：开发者模式、X-Action-Id 随机数、Client-Request-Id 链路追踪
 
 ## 2026-03-06
 

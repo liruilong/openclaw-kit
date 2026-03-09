@@ -247,7 +247,7 @@ Gateway 配置（`~/.openclaw/openclaw.json` 的 `gateway` 字段）：
 
 | 参数 | 说明 | 推荐值 |
 |------|------|--------|
-| `port` | 监听端口 | 18789 |
+| `port` | 监听端口 | 39521 |
 | `bind` | 绑定范围 | `loopback`（仅本机）或 `lan`（局域网） |
 | `auth.mode` | 认证 | `token` |
 

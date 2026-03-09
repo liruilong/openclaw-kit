@@ -9,9 +9,8 @@
   "content_scripts": [
     {
       "matches": [
-        "http://localhost:18789/*",
-        "http://127.0.0.1:18789/*",
-        "http://<LAN-IP>:18789/*"
+        "http://localhost:39521/*",
+        "http://127.0.0.1:39521/*"
       ],
       "js": ["content.js", "status-badge.js", "queue-enhance.js"],
       "css": ["content.css"],

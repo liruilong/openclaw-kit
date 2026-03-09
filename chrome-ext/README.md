@@ -77,7 +77,7 @@ chmod +x install-native-host.sh
 
 ## 使用
 
-1. 打开 OpenClaw Dashboard（`http://localhost:18789` 或配置的地址）
+1. 打开 OpenClaw Dashboard（`http://localhost:39521` 或配置的地址）
 2. 从 Finder 拖拽任意文件或文件夹到对话输入框
 3. 文件的完整路径会自动插入到输入框中
 
@@ -92,9 +92,8 @@ chmod +x install-native-host.sh
 
 扩展默认在以下页面生效（可在 `manifest.json` 中修改）：
 
-- `http://localhost:18789/*`
-- `http://127.0.0.1:18789/*`
-- `http://<LAN-IP>:18789/*`（按实际局域网 IP 替换）
+- `http://localhost:39521/*`
+- `http://127.0.0.1:39521/*`
 
 ## 相关项目
 

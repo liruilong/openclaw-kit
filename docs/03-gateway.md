@@ -6,14 +6,13 @@
 
 ```json
 {
-  "port": 18789,
+  "port": 39521,
   "mode": "local",
-  "bind": "lan",
+  "bind": "loopback",
   "controlUi": {
     "allowedOrigins": [
-      "http://localhost:18789",
-      "http://127.0.0.1:18789",
-      "http://<Mac-IP>:18789"
+      "http://localhost:39521",
+      "http://127.0.0.1:39521"
     ]
   },
   "auth": {
@@ -36,15 +35,16 @@
 
 | 参数 | 说明 |
 |------|------|
-| `port` | Gateway 监听端口，默认 18789 |
+| `port` | Gateway 监听端口，推荐 39521 |
 | `bind` | 绑定范围：`loopback`（仅本机）或 `lan`（局域网） |
 | `controlUi.allowedOrigins` | Dashboard 允许的来源 URL（CORS） |
 | `auth.mode` | 认证模式：`token` 或 `none` |
 | `http.endpoints.chatCompletions` | 启用 OpenAI 兼容的 chat completions 端点 |
 
-### 为什么设置 `bind: "lan"`
+### bind 模式说明
 
-默认 `bind` 为 `loopback`，只允许本机访问。设为 `lan` 后允许同局域网的其他主机通过浏览器访问 Dashboard。
+- `loopback`（推荐）：仅本机访问，最安全
+- `lan`：允许同局域网的其他主机访问 Dashboard，需注意安全风险
 
 ## Dashboard 访问
 
@@ -58,20 +58,15 @@ openclaw dashboard
 
 Dashboard URL 格式：
 ```
-http://<Mac-IP>:18789/?token=<gateway-token>
+http://localhost:39521/?token=<gateway-token>
 ```
 
 ### 从其他主机远程访问
 
-方式一：直接访问（需要 `bind: "lan"` + `allowedOrigins` 包含 Mac IP）
-```
-http://<Mac-IP>:18789/?token=<token>
-```
-
-方式二：SSH 端口转发
+推荐使用 SSH 端口转发（无需将 bind 改为 `lan`）：
 ```bash
-ssh -L 18789:127.0.0.1:18789 <username>@<Mac-IP>
-# 然后在 Windows 浏览器访问 http://127.0.0.1:18789
+ssh -L 39521:127.0.0.1:39521 <username>@<Mac-IP>
+# 然后在远程浏览器访问 http://127.0.0.1:39521
 ```
 
 ### 常用 Gateway 命令

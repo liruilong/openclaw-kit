@@ -362,7 +362,7 @@ openclaw models set cursor-local/opus-4.6
 openclaw models status
 ```
 
-也可通过 OpenClaw Dashboard（`http://localhost:39521`）在 Web UI 上切换。
+也可通过 OpenClaw Dashboard（`http://localhost:<port>`）在 Web UI 上切换。
 
 ### LaunchAgent 管理命令
 

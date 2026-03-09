@@ -75,8 +75,8 @@ openclaw-setup/
 | macOS 架构 | Intel x86_64 |
 | 配置文件 | `~/.openclaw/openclaw.json` |
 | Agent 工作区 | `~/agent-workspace/`（自定义） |
-| Gateway 端口 | 39521 |
-| Dashboard | `http://localhost:39521` |
+| Gateway 端口 | 自定义非默认端口 |
+| Dashboard | `http://localhost:<port>` |
 
 ## 使用说明
 

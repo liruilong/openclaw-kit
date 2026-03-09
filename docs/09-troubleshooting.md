@@ -83,7 +83,7 @@ Mac 和 iPhone 使用同一 Apple ID 导致消息回环。
 python3 -c "
 import json
 with open('$HOME/.openclaw/openclaw.json') as f: d=json.load(f)
-d['gateway']['controlUi']['allowedOrigins'].append('http://localhost:39521')
+d['gateway']['controlUi']['allowedOrigins'].append('http://localhost:<port>')
 with open('$HOME/.openclaw/openclaw.json','w') as f: json.dump(d,f,indent=2)
 "
 openclaw gateway restart

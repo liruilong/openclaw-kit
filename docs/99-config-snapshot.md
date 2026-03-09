@@ -229,13 +229,13 @@
     "mdns": { "mode": "off" }
   },
   "gateway": {
-    "port": 39521,
+    "port": "<custom-port>",
     "mode": "local",
     "bind": "loopback",
     "controlUi": {
       "allowedOrigins": [
-        "http://localhost:39521",
-        "http://127.0.0.1:39521"
+        "http://localhost:<custom-port>",
+        "http://127.0.0.1:<custom-port>"
       ]
     },
     "auth": {

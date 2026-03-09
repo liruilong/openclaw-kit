@@ -6,13 +6,13 @@
 
 ```json
 {
-  "port": 39521,
+  "port": "<custom-port>",
   "mode": "local",
   "bind": "loopback",
   "controlUi": {
     "allowedOrigins": [
-      "http://localhost:39521",
-      "http://127.0.0.1:39521"
+      "http://localhost:<custom-port>",
+      "http://127.0.0.1:<custom-port>"
     ]
   },
   "auth": {
@@ -35,7 +35,7 @@
 
 | 参数 | 说明 |
 |------|------|
-| `port` | Gateway 监听端口，推荐 39521 |
+| `port` | Gateway 监听端口，建议改为非默认端口 |
 | `bind` | 绑定范围：`loopback`（仅本机）或 `lan`（局域网） |
 | `controlUi.allowedOrigins` | Dashboard 允许的来源 URL（CORS） |
 | `auth.mode` | 认证模式：`token` 或 `none` |
@@ -58,15 +58,15 @@ openclaw dashboard
 
 Dashboard URL 格式：
 ```
-http://localhost:39521/?token=<gateway-token>
+http://localhost:<port>/?token=<gateway-token>
 ```
 
 ### 从其他主机远程访问
 
 推荐使用 SSH 端口转发（无需将 bind 改为 `lan`）：
 ```bash
-ssh -L 39521:127.0.0.1:39521 <username>@<Mac-IP>
-# 然后在远程浏览器访问 http://127.0.0.1:39521
+ssh -L <port>:127.0.0.1:<port> <username>@<Mac-IP>
+# 然后在远程浏览器访问 http://127.0.0.1:<port>
 ```
 
 ### 常用 Gateway 命令

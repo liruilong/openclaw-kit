@@ -1,0 +1,12 @@
+#!name= OpenClaw Dashboard (HTTPS)
+#!desc= MitM for OpenClaw Dashboard 本地 HTTPS 访问（需本机用 Caddy 等反向代理到 Gateway 端口）
+#!module=https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/surge-openclaw-dashboard.sgmodule
+#!version=1.0.0
+
+# 使用前请先在本机用 Caddy/nginx 等将 openclaw-dashboard.test 反代到 http://127.0.0.1:<Gateway端口>
+# 并将下方 MitM 主机改为你实际使用的域名（若不用 .test 请自行解析到 127.0.0.1）
+
+[MitM]
+hostname = openclaw-dashboard.test
+
+# 可选：若 Gateway 仅 bind loopback，从其他设备访问需先 SSH 隧道到本机，再在本机浏览器访问 https://openclaw-dashboard.test

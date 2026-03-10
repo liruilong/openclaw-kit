@@ -4,7 +4,10 @@
 #!version=1.0.0
 
 # 使用前请先在本机用 Caddy/nginx 等将 openclaw-dashboard.test 反代到 http://127.0.0.1:<Gateway端口>
-# 并将下方 MitM 主机改为你实际使用的域名（若不用 .test 请自行解析到 127.0.0.1）
+# [Host] 让 Surge 本地解析该域名，避免走公网 DNS 报错（Testing rules failed / Empty DNS answer）
+
+[Host]
+openclaw-dashboard.test = 127.0.0.1
 
 [MitM]
 hostname = openclaw-dashboard.test

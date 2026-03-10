@@ -39,6 +39,8 @@ caddy run --config /tmp/Caddyfile
 
 本机访问：`https://openclaw-dashboard.test`（浏览器会提示自签名证书，可接受）。
 
+模块内已包含 `[Host] openclaw-dashboard.test = 127.0.0.1`，让 Surge 本地解析该域名，避免「Testing rules failed / Empty DNS answer」（公共 DNS 没有 .test 记录）。
+
 ### 步骤 2：Surge 中启用 MitM
 
 在 Surge 里为该域名开启 MitM，并用自己的根证书解密 HTTPS，避免证书告警：

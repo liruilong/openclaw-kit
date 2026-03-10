@@ -4,199 +4,16 @@
 
 | 方案 | 成本 | 特点 | 适用场景 |
 |------|------|------|---------|
-| **A. Cursor Agent ACP 代理** | 零额外成本 | 复用 Cursor 订阅模型（ACP 常驻进程，2-3秒响应） | 已有 Cursor Pro/Ultra 订阅 |
+| **A. 企业 AI 网关（推荐）** | 企业内部零成本 | WPS V3 协议，14+ 模型（Claude/GPT-5/Gemini/DeepSeek） | 企业内网环境，日常首选 |
 | **B. 火山引擎（豆包）** | 按量付费 | 国产模型，Tool Use 能力强 | 需独立 API 调用 |
 | **C. 其他 OpenAI 兼容** | 按量付费 | Qwen/GLM/DeepSeek 等 | 灵活选择 |
-| **D. 企业 AI 网关** | 企业内部 | 统一协议接入多家模型 | 企业内网环境 |
+| ~~**D. Cursor Agent ACP 代理**~~ | 零额外成本 | ⚠️ **已被公司禁止使用**，仅保留文档供参考 | — |
 
 ---
 
-## 方案 A: Cursor Agent ACP 代理（推荐，零额外成本）
+## 方案 A: 企业 AI 网关（WPS）— 推荐首选
 
-通过 cursor-proxy 以 **ACP 常驻进程模式**将 Cursor 订阅的模型暴露为 OpenAI 兼容 API。**零额外费用，后续请求 2-3 秒响应。**
-
-### 前提条件
-
-- 已安装 Cursor CLI：`curl https://cursor.com/install -fsS | bash`
-- 已登录：`agent login`
-- 有 Cursor Pro/Ultra/Teams 订阅
-
-### 架构
-
-```
-OpenClaw → cursor-proxy (localhost:18790) → agent acp (常驻进程) → Cursor 模型
-```
-
-> 旧方案 llm-proxy 每次请求 spawn 新进程（13-27秒），ACP 模式使用常驻子进程（2-3秒）。
-
-### 启动 cursor-proxy
-
-```bash
-cd cursor-proxy
-CURSOR_WORKSPACE_DIR=~/.openclaw npm start
-```
-
-推荐使用 macOS LaunchAgent 管理生命周期（开机自启 + 崩溃重启）。
-
-在 `openclaw.json` 的 `models.providers` 下配置：
-
-```json
-"cursor-local": {
-  "baseUrl": "http://127.0.0.1:18790/v1",
-  "apiKey": "local",
-  "api": "openai-completions",
-  "models": [
-    { "id": "opus-4.6", "name": "Cursor Agent (Opus 4.6)", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 16384 },
-    { "id": "sonnet-4.6", "name": "Cursor Agent (Sonnet 4.6)", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 16384 }
-  ]
-}
-```
-
-在 `agents.defaults.model` 下配置：
-
-```json
-{
-  "primary": "cursor-local/opus-4.6",
-  "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
-}
-```
-
-重启：`openclaw gateway restart`
-
-### 可用模型
-
-通过 `agent --list-models` 查询完整列表，常用模型：
-
-| 模型 ID | 说明 |
-|---------|------|
-| `opus-4.6` | Claude 4.6 Opus（默认） |
-| `gpt-5.2` | GPT-5.2 通用 |
-| `sonnet-4.6` | Claude 4.6 Sonnet |
-| `gemini-3-flash` | Gemini 3 Flash（快速） |
-
-### 性能对比
-
-| 指标 | llm-proxy（旧，已弃用） | cursor-proxy ACP（新） |
-|------|----------------------|----------------------|
-| 首次请求 | 13-27秒 | ~20秒（含 session 创建） |
-| 后续请求 | 13-27秒（每次冷启动） | **2-3秒** |
-| 架构 | 每请求 spawn 新进程 | 一个常驻 `agent acp` 子进程 |
-
-### 验证
-
-```bash
-# 检查 ACP proxy 状态
-curl -sf http://127.0.0.1:18790/v1/health
-# 应返回 "mode": "acp", "acp": { "running": true }
-```
-
-详见 [cursor-proxy README](../cursor-proxy/README.md)
-
----
-
-## 方案 B: 火山引擎（Volcengine / 豆包）
-
-### Provider 配置
-
-配置路径：`models.providers.doubao`
-
-```json
-{
-  "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-  "apiKey": "<火山方舟 API Key>",
-  "api": "openai-completions"
-}
-```
-
-- `baseUrl`: 火山方舟的 OpenAI 兼容 API 端点
-- `api`: 使用 `openai-completions` 兼容模式
-- API Key 在 [火山方舟控制台](https://console.volcengine.com/ark/) 获取
-
-### 已配置的模型
-
-| 模型 ID | 名称 | 用途 | 上下文窗口 | 最大输出 | 多模态 |
-|---------|------|------|-----------|---------|--------|
-| `doubao-seed-2-0-pro-260215` | 豆包 2.0 Pro | Fallback 模型 | 256K | 8K | 文本+图片 |
-| `doubao-seed-2-0-lite-260215` | 豆包 2.0 Lite | 轻量任务 | 128K | 8K | 文本+图片 |
-| `doubao-seed-2-0-mini-260215` | 豆包 2.0 Mini | 极轻量任务 | 256K | 8K | 文本 |
-
-> 注意：模型 ID 实际上是火山方舟的**推理接入点（Endpoint）ID**，需要先在控制台创建。
-
-### Agent 默认模型
-
-配置路径：`agents.defaults.model`
-
-当前主模型使用 Cursor，豆包作为 fallback：
-
-```json
-{
-  "primary": "cursor-local/opus-4.6",
-  "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
-}
-```
-
-### Heartbeat 模型
-
-配置路径：`agents.defaults.heartbeat` 和 `agents.list[].heartbeat`
-
-```json
-{
-  "every": "30m",
-  "target": "last",
-  "activeHours": { "start": "08:00", "end": "24:00" }
-}
-```
-
-- `target: "last"` — 心跳投递到最近活跃的会话
-- `activeHours` — 限制心跳仅在活跃时段运行
-- 各 Agent 可覆盖 heartbeat 配置（如主 Agent 使用 `cursor-local/sonnet-4.6` 每小时心跳）
-
-### 配置命令
-
-```bash
-# 查看已配置模型
-openclaw models list
-
-# 查看模型状态
-openclaw models status
-
-# 设置默认模型
-openclaw models set cursor-local/opus-4.6
-
-# 添加模型 fallback
-openclaw models fallbacks add doubao/doubao-seed-2-0-pro-260215
-```
-
-### 添加新模型
-
-在 `openclaw.json` 的 `models.providers.doubao.models` 数组中添加：
-
-```json
-{
-  "id": "<endpoint-id>",
-  "name": "模型显示名",
-  "reasoning": false,
-  "input": ["text", "image"],
-  "contextWindow": 65535,
-  "maxTokens": 65535
-}
-```
-
-### Embedding 模型（待配置）
-
-记忆搜索需要 embedding 模型。方案有：
-
-1. **本地 Ollama**（推荐免费方案）：在 Mac 上运行 Ollama + `nomic-embed-text`
-2. **火山引擎 embedding**：需在控制台创建 `doubao-embedding` endpoint
-3. **硅基流动（SiliconFlow）**：免费额度，`https://api.siliconflow.cn/v1`
-
-详见 [记忆系统](08-memory.md)。
-
----
-
-## 方案 D: 企业 AI 网关（WPS）
-
-通过 wps-proxy 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口。**企业内部零成本，适合日常聊天场景。**
+通过 wps-proxy 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口。**企业内部零成本，支持 14+ 模型（Claude/GPT-5/Gemini/DeepSeek），适合日常所有场景。**
 
 ### 前提条件
 
@@ -214,12 +31,10 @@ openclaw models fallbacks add doubao/doubao-seed-2-0-pro-260215
 ### 架构
 
 ```
-OpenClaw → wps-proxy (localhost:3010) → WPS AI 网关 (ai-gateway.wps.cn)
+OpenClaw → wps-proxy (localhost:<port>) → WPS AI 网关 V3 (ai-gateway.wps.cn)
 ```
 
-wps-proxy 负责将 OpenAI 格式的请求转换为 WPS 网关 V2 协议（Chat 类接口），并将响应转换回 OpenAI 格式。支持流式/非流式和 Tool Calling 透传。
-
-proxy 直接使用 WPS 网关原始模型 ID（`claude-opus-4-5`、`claude-sonnet-4-5`）。
+wps-proxy 使用 V3 协议（完全兼容 OpenAI API），proxy 只做 header 注入和模型名前缀处理。
 
 ### 部署与启动
 
@@ -229,23 +44,7 @@ proxy 直接使用 WPS 网关原始模型 ID（`claude-opus-4-5`、`claude-sonne
 cp wps-proxy/proxy.mjs ~/.openclaw/wps-proxy.mjs
 ```
 
-#### 2. 配置 auth-profiles
-
-在 `~/.openclaw/agents/main/agent/auth-profiles.json` 中添加（如文件不存在则新建）：
-
-```json
-{
-  "profiles": {
-    "wps:default": {
-      "type": "api_key",
-      "provider": "wps",
-      "key": "wps-proxy"
-    }
-  }
-}
-```
-
-#### 3. 配置 LaunchAgent（开机自启 + 崩溃重启）
+#### 2. 配置 LaunchAgent（开机自启 + 崩溃重启）
 
 创建 `~/Library/LaunchAgents/ai.openclaw.wps-proxy.plist`：
 
@@ -292,100 +91,69 @@ cp wps-proxy/proxy.mjs ~/.openclaw/wps-proxy.mjs
 launchctl load ~/Library/LaunchAgents/ai.openclaw.wps-proxy.plist
 ```
 
-#### 4. 手动启动（不用 LaunchAgent）
+#### 3. 手动启动（不用 LaunchAgent）
 
 ```bash
 export WPS_TOKEN=<your-token>
 node ~/.openclaw/wps-proxy.mjs
 ```
 
-通过 `--model` 指定默认模型（不指定则默认 `claude-opus-4-5`）：
-
-```bash
-node ~/.openclaw/wps-proxy.mjs --model claude-sonnet-4-5
-```
-
 ### Provider 配置
 
-在 `openclaw.json` 的 `models.providers` 下添加：
+在 `openclaw.json` 的 `models.providers` 下配置：
 
 ```json
 "wps": {
-  "baseUrl": "http://127.0.0.1:3010/v1",
+  "baseUrl": "http://127.0.0.1:<port>/v1",
   "api": "openai-completions",
   "models": [
-    {
-      "id": "claude-opus-4-5",
-      "name": "Claude Opus 4.5 (WPS)",
-      "reasoning": true,
-      "input": ["text"],
-      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-      "contextWindow": 200000,
-      "maxTokens": 4096
-    },
-    {
-      "id": "claude-sonnet-4-5",
-      "name": "Claude Sonnet 4.5 (WPS)",
-      "reasoning": true,
-      "input": ["text"],
-      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-      "contextWindow": 200000,
-      "maxTokens": 4096
-    }
+    { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 16384 },
+    { "id": "claude-opus-4-5", "name": "Claude Opus 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-sonnet-4", "name": "Claude Sonnet 4 (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "gpt-5", "name": "GPT-5 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
+    { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro (WPS)", "reasoning": true, "contextWindow": 1048576, "maxTokens": 16384 },
+    { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (WPS)", "contextWindow": 1048576, "maxTokens": 16384 },
+    { "id": "deepseek-v3.2", "name": "DeepSeek V3.2 (WPS)", "contextWindow": 128000, "maxTokens": 8192 },
+    { "id": "deepseek-reasoner", "name": "DeepSeek R1 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 }
   ]
 }
 ```
 
-在 `~/.openclaw/agents/main/agent/models.json` 的 `providers` 中也添加同样的 `wps` 配置（额外加 `"apiKey": "wps-proxy"`）。
+在 `agents.defaults.model` 下配置：
 
-> 注意：如果修改了 `PORT`，需要同步更新 `baseUrl` 中的端口号。
+```json
+{
+  "primary": "wps/claude-opus-4-6",
+  "fallbacks": ["wps/claude-opus-4-5", "wps/claude-sonnet-4-5"]
+}
+```
+
+重启：`openclaw gateway restart`
 
 ### 可用模型
 
 | 模型 ID | 说明 | 后端 |
 |---------|------|------|
-| `claude-opus-4-5` | Claude Opus 4.5（默认） | AWS Bedrock |
+| `claude-opus-4-6` | Claude Opus 4.6（默认） | AWS Bedrock |
+| `claude-opus-4-5` | Claude Opus 4.5 | AWS Bedrock |
 | `claude-sonnet-4-5` | Claude Sonnet 4.5 | AWS Bedrock |
-
-### 与 Cursor 代理配合：模型切换
-
-WPS 代理（日常聊天）和 Cursor 代理（复杂任务）可同时运行，通过 OpenClaw 命令手动切换：
-
-```bash
-# 日常聊天 → WPS（企业内部零成本）
-openclaw models set wps/claude-opus-4-5
-
-# 复杂任务 → Cursor（强推理 + 深度工具调用）
-openclaw models set cursor-local/opus-4.6
-
-# 查看当前使用的模型
-openclaw models status
-```
-
-也可通过 OpenClaw Dashboard（`http://localhost:<port>`）在 Web UI 上切换。
-
-### LaunchAgent 管理命令
-
-```bash
-# 停止
-launchctl unload ~/Library/LaunchAgents/ai.openclaw.wps-proxy.plist
-
-# 启动
-launchctl load ~/Library/LaunchAgents/ai.openclaw.wps-proxy.plist
-
-# 查看状态
-launchctl list | grep wps-proxy
-
-# 查看日志
-tail -f ~/.openclaw/logs/wps-proxy.log
-```
+| `claude-sonnet-4` | Claude Sonnet 4 | AWS Bedrock |
+| `claude-3-7-sonnet` | Claude 3.7 Sonnet | AWS Bedrock |
+| `claude-3-5-haiku` | Claude 3.5 Haiku（心跳） | AWS Bedrock |
+| `gpt-5` | GPT-5 | Azure |
+| `gemini-2.5-pro` | Gemini 2.5 Pro | Google |
+| `gemini-2.5-flash` | Gemini 2.5 Flash | Google |
+| `deepseek-v3.2` | DeepSeek V3.2 | DeepSeek |
+| `deepseek-reasoner` | DeepSeek R1 | DeepSeek |
 
 ### 环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `3010` | 监听端口 |
-| `WPS_GATEWAY_URL` | `http://ai-gateway.wps.cn/api/v2/llm/chat` | 网关地址 |
 | `WPS_TOKEN` | **必须配置** | Bearer Token |
 | `WPS_UID` | `9010` | AI-Gateway-Uid |
 | `WPS_PRODUCT` | `kdocs-as-baseserver` | AI-Gateway-Product-Name |
@@ -395,14 +163,151 @@ tail -f ~/.openclaw/logs/wps-proxy.log
 
 ---
 
+## 方案 B: 火山引擎（Volcengine / 豆包）
+
+### Provider 配置
+
+配置路径：`models.providers.doubao`
+
+```json
+{
+  "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+  "apiKey": "<火山方舟 API Key>",
+  "api": "openai-completions"
+}
+```
+
+- `baseUrl`: 火山方舟的 OpenAI 兼容 API 端点
+- `api`: 使用 `openai-completions` 兼容模式
+- API Key 在 [火山方舟控制台](https://console.volcengine.com/ark/) 获取
+
+### 已配置的模型
+
+| 模型 ID | 名称 | 用途 | 上下文窗口 | 最大输出 | 多模态 |
+|---------|------|------|-----------|---------|--------|
+| `doubao-seed-2-0-pro-260215` | 豆包 2.0 Pro | Fallback 模型 | 256K | 8K | 文本+图片 |
+| `doubao-seed-2-0-lite-260215` | 豆包 2.0 Lite | 轻量任务 | 128K | 8K | 文本+图片 |
+| `doubao-seed-2-0-mini-260215` | 豆包 2.0 Mini | 极轻量任务 | 256K | 8K | 文本 |
+
+> 注意：模型 ID 实际上是火山方舟的**推理接入点（Endpoint）ID**，需要先在控制台创建。
+
+### Agent 默认模型
+
+配置路径：`agents.defaults.model`
+
+当前主模型使用 WPS 网关，豆包作为 fallback：
+
+```json
+{
+  "primary": "wps/claude-opus-4-6",
+  "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
+}
+```
+
+### Heartbeat 模型
+
+配置路径：`agents.defaults.heartbeat` 和 `agents.list[].heartbeat`
+
+```json
+{
+  "every": "30m",
+  "target": "last",
+  "activeHours": { "start": "08:00", "end": "24:00" }
+}
+```
+
+- `target: "last"` — 心跳投递到最近活跃的会话
+- `activeHours` — 限制心跳仅在活跃时段运行
+- 各 Agent 可覆盖 heartbeat 配置（如主 Agent 使用 `wps/claude-3-5-haiku` 进行心跳）
+
+### 配置命令
+
+```bash
+# 查看已配置模型
+openclaw models list
+
+# 查看模型状态
+openclaw models status
+
+# 设置默认模型
+openclaw models set wps/claude-opus-4-6
+
+# 添加模型 fallback
+openclaw models fallbacks add wps/claude-opus-4-5
+```
+
+### 添加新模型
+
+在 `openclaw.json` 的 `models.providers.doubao.models` 数组中添加：
+
+```json
+{
+  "id": "<endpoint-id>",
+  "name": "模型显示名",
+  "reasoning": false,
+  "input": ["text", "image"],
+  "contextWindow": 65535,
+  "maxTokens": 65535
+}
+```
+
+### Embedding 模型（待配置）
+
+记忆搜索需要 embedding 模型。方案有：
+
+1. **本地 Ollama**（推荐免费方案）：在 Mac 上运行 Ollama + `nomic-embed-text`
+2. **火山引擎 embedding**：需在控制台创建 `doubao-embedding` endpoint
+3. **硅基流动（SiliconFlow）**：免费额度，`https://api.siliconflow.cn/v1`
+
+详见 [记忆系统](08-memory.md)。
+
+---
+
+## ~~方案 D: Cursor Agent ACP 代理（已禁止）~~
+
+> ⚠️ **公司已禁止使用 Cursor 代理方式**。以下内容仅供历史参考，请勿在生产环境使用。
+>
+> 所有模型请求应通过 **方案 A（WPS AI 网关）** 完成。
+
+<details>
+<summary>展开查看历史配置（仅供参考）</summary>
+
+通过 cursor-proxy 以 ACP 常驻进程模式将 Cursor 订阅的模型暴露为 OpenAI 兼容 API。
+
+### 架构
+
+```
+OpenClaw → cursor-proxy (localhost:18790) → agent acp (常驻进程) → Cursor 模型
+```
+
+### Provider 配置
+
+```json
+"cursor-local": {
+  "baseUrl": "http://127.0.0.1:18790/v1",
+  "apiKey": "local",
+  "api": "openai-completions",
+  "models": [
+    { "id": "opus-4.6", "name": "Cursor Agent (Opus 4.6)", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 16384 },
+    { "id": "sonnet-4.6", "name": "Cursor Agent (Sonnet 4.6)", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 16384 }
+  ]
+}
+```
+
+详见 [cursor-proxy README](../cursor-proxy/README.md)
+
+</details>
+
+---
+
 ## 模型提供商对比
 
-| 模型提供商 | Tool Use 能力 | 性价比 | OpenAI 兼容 |
-|-----------|-------------|--------|-----------|
-| **Cursor Agent ACP 代理** | 极强（GPT-5/Claude 4.6） | **零额外成本** | 是（via cursor-proxy ACP） |
-| **WPS AI 网关** | 取决于后端模型（Claude 4.5） | **企业内部零成本** | 是（via wps-proxy） |
-| 豆包 Doubao | 强 | 高 | 是 |
-| Qwen（通义千问） | 很强 | 高 | 是 |
-| GLM-4（智谱） | 不错 | 极高（有免费额度） | 是 |
-| DeepSeek | 一般 | 极高 | 是 |
-| Moonshot（Kimi） | 好 | 中 | 是 |
+| 模型提供商 | Tool Use 能力 | 性价比 | OpenAI 兼容 | 状态 |
+|-----------|-------------|--------|-----------|------|
+| **WPS AI 网关** | 极强（Claude 4.6/GPT-5/Gemini） | **企业内部零成本** | 是（via wps-proxy V3） | ✅ 推荐 |
+| 豆包 Doubao | 强 | 高 | 是 | ✅ 可用 |
+| Qwen（通义千问） | 很强 | 高 | 是 | ✅ 可用 |
+| GLM-4（智谱） | 不错 | 极高（有免费额度） | 是 | ✅ 可用 |
+| DeepSeek | 一般 | 极高 | 是 | ✅ 可用 |
+| Moonshot（Kimi） | 好 | 中 | 是 | ✅ 可用 |
+| ~~Cursor Agent ACP 代理~~ | 极强（GPT-5/Claude 4.6） | 零额外成本 | 是（via cursor-proxy） | ⛔ 公司已禁止 |

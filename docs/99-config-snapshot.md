@@ -1,6 +1,6 @@
 # 当前配置快照
 
-> 截取于 2026-03-09（v3），已升级至 WPS AI 网关 V3 协议（OpenAI 兼容，14 模型）+ cursor-proxy ACP（Cursor 订阅模型）双代理架构 + 工具安全策略
+> 截取于 2026-03-10（v3），WPS AI 网关 V3 协议（OpenAI 兼容，14 模型）为唯一模型来源 + 工具安全策略。cursor-proxy 已因公司禁令移除。
 
 ## openclaw.json
 
@@ -13,29 +13,6 @@
   "models": {
     "mode": "merge",
     "providers": {
-      "cursor-local": {
-        "baseUrl": "http://127.0.0.1:18790/v1",
-        "apiKey": "local",
-        "api": "openai-completions",
-        "models": [
-          {
-            "id": "opus-4.6",
-            "name": "Cursor Agent (Opus 4.6)",
-            "reasoning": false,
-            "input": ["text"],
-            "contextWindow": 128000,
-            "maxTokens": 16384
-          },
-          {
-            "id": "sonnet-4.6",
-            "name": "Cursor Agent (Sonnet 4.6)",
-            "reasoning": false,
-            "input": ["text"],
-            "contextWindow": 128000,
-            "maxTokens": 16384
-          }
-        ]
-      },
       "wps": {
         "baseUrl": "http://127.0.0.1:<proxy-port>/v1",
         "api": "openai-completions",
@@ -77,16 +54,13 @@
         "primary": "wps/claude-opus-4-6",
         "fallbacks": [
           "wps/claude-opus-4-5",
-          "cursor-local/opus-4.6",
-          "wps/claude-sonnet-4-5",
-          "cursor-local/sonnet-4.6"
+          "wps/claude-sonnet-4-5"
         ]
       },
       "models": {
         "wps/claude-opus-4-6": {}, "wps/claude-opus-4-5": {},
         "wps/claude-sonnet-4-5": {}, "wps/gpt-5": {},
         "wps/gemini-2.5-pro": {}, "wps/deepseek-reasoner": {},
-        "cursor-local/opus-4.6": {}, "cursor-local/sonnet-4.6": {},
         "wps/claude-sonnet-4": {}, "wps/claude-3-7-sonnet": {},
         "wps/claude-3-5-haiku": {}, "wps/gemini-2.5-flash": {},
         "wps/deepseek-v3.2": {}
@@ -110,7 +84,7 @@
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8,
-        "model": "cursor-local/sonnet-4.6"
+        "model": "wps/claude-sonnet-4-5"
       }
     },
     "list": [
@@ -134,8 +108,8 @@
       {
         "id": "kdocs-converter",
         "model": {
-          "primary": "cursor-local/sonnet-4.6",
-          "fallbacks": ["wps/claude-opus-4-5"]
+        "primary": "wps/claude-sonnet-4-5",
+        "fallbacks": ["wps/claude-opus-4-5"]
         },
         "identity": { "name": "金山文档转换", "emoji": "📄" }
       }
@@ -231,18 +205,18 @@
 
 ```
 OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（OpenAI 兼容，14 模型，企业零成本）
-                → cursor-proxy ACP (localhost:<port>) → agent acp → Cursor 订阅模型（复杂任务）
                 → Ollama (localhost:11434) → Qwen 2.5 3B（Embedding 专用）
 ```
 
-- **日常聊天**：`wps/claude-opus-4-6`（默认模型，WPS 网关 V3 协议）
-- **复杂任务**：`cursor-local/opus-4.6`（通过 ACP 常驻进程代理 Cursor Agent CLI）
-- **Fallback 链**：`wps/claude-opus-4-5` → `cursor-local/opus-4.6` → `wps/claude-sonnet-4-5` → `cursor-local/sonnet-4.6`
+> ⚠️ cursor-proxy ACP 已因公司禁令移除，所有模型请求统一走 WPS AI 网关。
+
+- **默认模型**：`wps/claude-opus-4-6`（WPS 网关 V3 协议）
+- **Fallback 链**：`wps/claude-opus-4-5` → `wps/claude-sonnet-4-5`
 - **心跳模型**：`wps/claude-3-5-haiku`（独立 session，轻上下文模式，低成本 TODO 检查和转发）
 - **OpenClaw 注册模型**：Claude (6) / GPT-5 (1) / Gemini (2) / DeepSeek (2) = 11 个（proxy 层另有 o3/gpt-5-mini/gpt-4.1/kimi-k2.5 共 14 个）
-- **子代理模型**：`cursor-local/sonnet-4.6`（自动分配给子 agent）
+- **子代理模型**：`wps/claude-sonnet-4-5`（自动分配给子 agent）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
-- **切换命令**：`openclaw models set wps/claude-opus-4-5`（日常）/ `openclaw models set cursor-local/opus-4.6`（复杂）
+- **切换命令**：`openclaw models set wps/claude-opus-4-6` / `openclaw models set wps/gemini-2.5-pro`
 - **wps-proxy 生命周期**：macOS LaunchAgent（`ai.openclaw.wps-proxy`），开机自启、崩溃重启
 
 ### 多 Agent 架构
@@ -252,7 +226,7 @@ OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（Open
 | 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/agents/<agent-name>` | 日常聊天、通用任务 |
 | 💻 **Coder** | 写代码 | 继承默认（`wps/claude-opus-4-6`） | `~/workspace` | 编码、调试、代码审查 |
 | ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-6` | — | 产品文案撰写 |
-| 📄 **金山文档转换** | 文档处理 | `cursor-local/sonnet-4.6` | — | 金山文档格式转换 |
+| 📄 **金山文档转换** | 文档处理 | `wps/claude-sonnet-4-5` | — | 金山文档格式转换 |
 
 ### 工具安全策略
 
@@ -267,16 +241,10 @@ OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（Open
 | **文件操作** | `fs.workspaceOnly: true` | 文件读写限制在工作区内 |
 | **补丁应用** | `applyPatch.workspaceOnly: true` | 补丁只能应用到工作区文件 |
 
-### cursor-proxy ACP 模式要点
+### ~~cursor-proxy ACP 模式（已弃用）~~
 
-- `agent acp` 作为常驻子进程运行，通过 JSON-RPC 2.0 通信
-- 后续请求 2-3 秒响应（旧 llm-proxy spawn 模式需 13-27 秒）
-- `session/request_permission` 自动 approve-always
-- 崩溃自动重启（2秒延迟）
-- **Session 复用**：同一 ACP session 处理多个请求，直到达到阈值（50 条或 10 万 token）才轮换
-- **连续 idle timeout 自动轮换**：ACP session 堵死后，连续 2 次 idle timeout 自动轮换到新 session（`CURSOR_SESSION_IDLE_ROTATE` 可调）
-- **默认工作目录**：`CURSOR_WORKSPACE_DIR` 默认为 `~/.openclaw`，确保 Agent 能访问 skills、memory 等资源
-- 详见 [cursor-proxy README](../cursor-proxy/README.md)
+> ⚠️ **公司已禁止使用 Cursor 代理方式。** 所有模型请求统一通过 WPS AI 网关完成。
+> 历史文档保留在 [cursor-proxy README](../cursor-proxy/README.md) 供参考。
 
 ### mcporter 配置（非编码 MCP）
 
@@ -306,9 +274,10 @@ mcporter 管理不经过 Cursor IDE 的通用 MCP 工具，配置文件位于 `~
 
 ### 历史方案（已弃用）
 
-- **llm-proxy**（spawn 模式）：每次请求 spawn 新 `agent -p` 进程，13-27 秒延迟，已被 ACP 模式替代
+- **cursor-proxy ACP 代理**：通过 Cursor Agent CLI 暴露模型为 OpenAI API，**已因公司禁令弃用**，所有请求改走 WPS AI 网关
+- **llm-proxy**（spawn 模式）：每次请求 spawn 新 `agent -p` 进程，13-27 秒延迟，已被 ACP 模式替代（ACP 模式本身也已弃用）
 - **cliBackends**：OpenClaw 原生 CLI Backend，存在 transcript 持久化问题，已弃用
-- **openclaw-cursor-brain 插件**：早期通过插件管理 cursor-proxy 生命周期，已改为 LaunchAgent 管理
+- **openclaw-cursor-brain 插件**：早期通过插件管理 cursor-proxy 生命周期，已弃用
 - **心跳 ollama 模型**：早期心跳使用 `ollama/qwen2.5:3b` 本地模型，因 ≤7B 模型无法可靠执行多步工具调用链，先改为 `wps/claude-sonnet-4-5`，后优化为更低成本的 `wps/claude-3-5-haiku`
 - **WPS V2 协议**：早期 wps-proxy 使用 V2 协议（需要 OpenAI → WPS 格式转换），已升级为 V3 协议（完全兼容 OpenAI API，proxy 只做 header 注入和模型名前缀处理）
 - **心跳驱动 TODO 监控**：通过 cron job + HEARTBEAT.md 指令实现 heartbeat 检查 → exec 唤醒主 session 处理，详见 [docs/11-todo-monitor.md](./11-todo-monitor.md)

@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// security-allow: hardcoded-url — WPS AI Gateway 测试环境固定域名，无安全敏感信息
+// security-allow: hardcoded-url — 企业 AI Gateway 测试环境固定域名，无安全敏感信息
 /**
- * WPS AI Gateway V3 Proxy
+ * 企业 AI Gateway V3 Proxy
  * V3 协议完全兼容 OpenAI API 标准，proxy 只做 header 注入和模型名前缀处理
  *
  * 环境变量:
  *   PORT             - 监听端口 (默认: 3010)
- *   WPS_GATEWAY_URL  - 网关 V3 base URL（默认: 测试环境）
- *   WPS_TOKEN        - Bearer Token（必须配置）
- *   WPS_UID          - AI-Gateway-Uid
- *   WPS_PRODUCT      - AI-Gateway-Product-Name
- *   WPS_INTENTION    - AI-Gateway-Intention-Code
- *   WPS_DEV_MODE     - 是否启用开发者模式（默认 true，测试环境用）
+ *   GATEWAY_URL  - 网关 V3 base URL（默认: 测试环境）
+ *   GATEWAY_TOKEN        - Bearer Token（必须配置）
+ *   GATEWAY_UID          - AI-Gateway-Uid
+ *   GATEWAY_PRODUCT      - AI-Gateway-Product-Name
+ *   GATEWAY_INTENTION    - AI-Gateway-Intention-Code
+ *   GATEWAY_DEV_MODE     - 是否启用开发者模式（默认 true，测试环境用）
  */
 
 import http from "node:http";
@@ -19,17 +19,17 @@ import crypto from "node:crypto";
 
 const PORT = parseInt(process.env.PORT ?? "3010", 10);
 const GATEWAY_BASE =
-  process.env.WPS_GATEWAY_URL ??
-  "https://ai-gateway.wps.cn/testa/api/v3";
+  process.env.GATEWAY_URL ??
+  "https://enterprise-gateway.example.com/testa/api/v3";
 
-const WPS_TOKEN = process.env.WPS_TOKEN;
-if (!WPS_TOKEN) {
-  console.error("❌ 缺少 WPS_TOKEN 环境变量，请先配置后再启动");
-  console.error("   export WPS_TOKEN=<your-token>");
+const GATEWAY_TOKEN = process.env.GATEWAY_TOKEN;
+if (!GATEWAY_TOKEN) {
+  console.error("❌ 缺少 GATEWAY_TOKEN 环境变量，请先配置后再启动");
+  console.error("   export GATEWAY_TOKEN=<your-token>");
   process.exit(1);
 }
 
-const DEV_MODE = process.env.WPS_DEV_MODE !== "false";
+const DEV_MODE = process.env.GATEWAY_DEV_MODE !== "false";
 
 /**
  * 模型映射表：proxy model id → { fullName (V3 命名), displayName }
@@ -59,11 +59,11 @@ function generateActionId() {
 
 function buildGatewayHeaders() {
   const headers = {
-    Authorization: `Bearer ${WPS_TOKEN}`,
-    "AI-Gateway-Uid": process.env.WPS_UID ?? "9010",
-    "AI-Gateway-Product-Name": process.env.WPS_PRODUCT ?? "kdocs-as-baseserver",
+    Authorization: `Bearer ${GATEWAY_TOKEN}`,
+    "AI-Gateway-Uid": process.env.GATEWAY_UID ?? "9010",
+    "AI-Gateway-Product-Name": process.env.GATEWAY_PRODUCT ?? "kdocs-as-baseserver",
     "AI-Gateway-Intention-Code":
-      process.env.WPS_INTENTION ?? "kdocs_as_assistant_intentrecognize",
+      process.env.GATEWAY_INTENTION ?? "kdocs_as_assistant_intentrecognize",
     "Content-Type": "application/json",
     "X-Action-Id": generateActionId(),
     "Client-Request-Id": `proxy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -313,7 +313,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log(`✅ WPS AI V3 Proxy 已启动 → http://127.0.0.1:${PORT}/v1`);
+  console.log(`✅ 企业 AI V3 Proxy 已启动 → http://127.0.0.1:${PORT}/v1`);
   console.log(`   网关地址: ${GATEWAY_BASE}`);
   console.log(`   开发者模式: ${DEV_MODE ? "✓" : "✗"}`);
   console.log(`   默认模型: ${DEFAULT_MODEL} → ${MODEL_MAP[DEFAULT_MODEL].fullName}`);

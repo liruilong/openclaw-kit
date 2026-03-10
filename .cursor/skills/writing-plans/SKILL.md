@@ -125,7 +125,7 @@ After the plan is complete, suggest execution approach based on project type:
 
 ```
 Plan complete
-├── WPS component project (has tdd-workflow skill) → Hand off to tdd-workflow's component-level TDD loop
+├── 企业组件项目 (has tdd-workflow skill) → Hand off to tdd-workflow's component-level TDD loop
 └── Generic project → Inform user to execute step by step according to plan
 ```
 
@@ -156,7 +156,7 @@ Plan complete
 
 - Requirement brainstorming & design: `.cursor/skills/brainstorming/SKILL.md` (upstream, produces design documents)
 - Requirement extraction: `.cursor/skills/requirement-extraction/SKILL.md` (requirement docs can be plan input)
-- TDD workflow: `.cursor/skills/tdd-workflow/SKILL.md` (execution handoff for WPS component projects)
+- TDD workflow: `.cursor/skills/tdd-workflow/SKILL.md` (execution handoff for 企业组件项目)
 
 ## Inspiration
 

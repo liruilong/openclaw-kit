@@ -36,7 +36,7 @@ git checkout master
 
 ## 脱敏内容说明
 
-- **命名**：wps-proxy → gateway-proxy，wps/ → enterprise/，WPS 相关文案 → 企业网关/企业协作等泛化表述。
-- **域名/地址**：ai-gateway.wps.cn、kdocs.cn、ksord.com 等 → example.com 占位。
-- **环境变量**：WPS_TOKEN → GATEWAY_TOKEN，wps_sid → doc_sid 等。
-- **目录**：wps-proxy → gateway-proxy，wps-doc-cli → doc-cli，wpsv7-skills → office-skills。
+- **命名**：gateway-proxy → gateway-proxy，gateway/ → enterprise/，品牌相关文案 → 企业网关/企业协作等泛化表述。
+- **域名/地址**：enterprise-gateway.example.com、kdocs.cn、ksord.com 等 → example.com 占位。
+- **环境变量**：GATEWAY_TOKEN → GATEWAY_TOKEN，gateway_sid → doc_sid 等。
+- **目录**：gateway-proxy → gateway-proxy，wps-doc-cli → doc-cli，wpsv7-skills → office-skills。

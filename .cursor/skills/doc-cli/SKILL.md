@@ -1,16 +1,16 @@
 ---
-name: wps-doc-cli
-description: "Use this skill whenever the user needs to work with WPS/Kingsoft documents (金山文档). Triggers include: creating documents, generating reports that should be online documents, converting content to WPS documents, parsing WPS document URLs, reading content from shared WPS document links, or when user mentions '金山文档', 'WPS文档', '在线文档', or provides a URL like 'kdocs.cn' or '365.kdocs.cn'. Also use when user wants to generate a shareable online document URL from markdown content."
+name: doc-cli
+description: "Use this skill whenever the user needs to work with online documents (在线文档). Triggers include: creating documents, generating reports as online documents, converting content to online documents, parsing document URLs, reading content from shared document links, or when user mentions '在线文档' or provides a URL like kdocs.cn / 365.kdocs.cn. Also use when user wants to generate a shareable online document URL from markdown content."
 ---
 
-# WPS Document CLI - 金山文档操作
+# 在线文档 CLI - 在线文档操作
 
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Markdown → 金山文档 | `wps-doc import <file.md> --title "Title"` |
-| 金山文档 → Markdown | `wps-doc export <url> [-o output.md]` |
+| Markdown → 在线文档 | `wps-doc import <file.md> --title "Title"` |
+| 在线文档 → Markdown | `wps-doc export <url> [-o output.md]` |
 | 检查认证状态 | `wps-doc auth --status` |
 | 执行认证 | `wps-doc auth` |
 | 列出云盘 | `wps-doc drives` |
@@ -33,16 +33,16 @@ npm install -g @wps-agent/core@latest --registry=https://registry.npmjs.org/
 
 检查以下位置是否存在 `.env` 文件（按优先级搜索）：
 1. 当前目录 `.env` / `.env.local`
-2. `.claude/skills/wps-doc-cli/.env` / `.cursor/skills/wps-doc-cli/.env`
-3. `~/.claude/skills/wps-doc-cli/.env` / `~/.cursor/skills/wps-doc-cli/.env`
+2. `.claude/skills/doc-cli/.env` / `.cursor/skills/doc-cli/.env`
+3. `~/.claude/skills/doc-cli/.env` / `~/.cursor/skills/doc-cli/.env`
 
-必需的环境变量：
+必需的环境变量（名称以所用在线文档平台文档为准，常见为 CLIENT_ID、CLIENT_SECRET）：
 ```
-WPS_CLIENT_ID=your_client_id
-WPS_CLIENT_SECRET=your_client_secret
+CLIENT_ID=your_client_id
+CLIENT_SECRET=your_client_secret
 ```
 
-如果缺少配置，则无法使用改skills, 需要**提示用户**前往 [WPS 开放平台](https://open.wps.cn/) 创建应用获取凭据。
+如果缺少配置，则无法使用本 skill，需**提示用户**前往所用在线文档平台的开放平台创建应用并获取凭据。
 
 ### Step 3: 认证
 
@@ -54,7 +54,7 @@ wps-doc auth --status
 
 ---
 
-## Workflow: 创建金山文档
+## Workflow: 创建在线文档
 
 当用户需要生成在线文档时：
 
@@ -79,7 +79,7 @@ cat > /tmp/wps-doc-temp.md << 'WPSEOF'
 文档内容...
 WPSEOF
 
-# 导入到金山文档，使用 --json 方便解析输出
+# 导入到在线文档，使用 --json 方便解析输出
 wps-doc import /tmp/wps-doc-temp.md --title "文档标题" --json
 
 # 清理
@@ -98,9 +98,9 @@ JSON 输出格式：
 
 ---
 
-## Workflow: 解析金山文档 URL
+## Workflow: 解析在线文档 URL
 
-当用户提供金山文档 URL 需要读取内容时：
+当用户提供在线文档 URL 需要读取内容时：
 
 ```
 Task Progress:
@@ -129,7 +129,7 @@ wps-doc export "https://365.kdocs.cn/l/clGzNRMWYfG9" -o /tmp/wps-output.md
 
 | 错误 | 处理方式 |
 |------|----------|
-| `缺少环境变量: WPS_CLIENT_ID` | 提示用户配置 `.env` 文件 |
+| `缺少环境变量`（如 CLIENT_ID） | 提示用户配置 `.env` 文件 |
 | `未认证` | 执行 `wps-doc auth` |
 | 文档未找到 | 检查 URL/ID 是否正确 |
 | 权限被拒绝 | 文档可能未分享给当前用户 |

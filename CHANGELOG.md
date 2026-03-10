@@ -1,12 +1,22 @@
 # Changelog
 
+## 2026-03-11
+
+### 删除
+
+- `cursor-proxy/` — 已移除，避免法律风险；所有模型请求统一走企业 AI 网关（gateway-proxy）
+
+### 修改
+
+- 文档与幻灯片中移除 cursor-proxy、Cursor Agent ACP 相关表述与引用
+
 ## 2026-03-09
 
 ### 新增
 
 - `chrome-ext/` — Chrome 浏览器扩展，增强 Dashboard 交互体验（拖拽文件插入路径、状态徽章、队列增强），含 Native Messaging Host（路径解析）
 - `docs/11-todo-monitor.md` — 心跳驱动 TODO 监控方案文档，含架构说明、配置步骤、踩坑记录和本地模型评测
-- **wps-proxy 重写为 V3 协议**（完全兼容 OpenAI API，不再需要格式转换），支持 14 个模型：
+- **gateway-proxy 重写为 V3 协议**（完全兼容 OpenAI API，不再需要格式转换），支持 14 个模型：
   - Claude: opus-4-6、opus-4-5、sonnet-4-5、3-7-sonnet、3-5-haiku
   - Azure: gpt-5、gpt-5-mini、gpt-4.1、o3
   - Google: gemini-2.5-pro、gemini-2.5-flash
@@ -15,37 +25,35 @@
 
 ### 修改
 
-- cursor-proxy 新增连续 idle timeout 自动轮换 session（默认 2 次后轮换），解决 ACP session 堵死后请求反复超时的问题
-- cursor-proxy README 补充新增的环境变量说明（`CURSOR_PROMPT_IDLE_TIMEOUT`、`CURSOR_SESSION_MAX_REQUESTS`、`CURSOR_SESSION_MAX_TOKENS`、`CURSOR_SESSION_IDLE_ROTATE`）
 - 配置快照同步运行时实际配置：
-  - 默认模型改为 `wps/claude-opus-4-5`，fallback 链 `cursor-local/opus-4.6` → `cursor-local/sonnet-4.6` → `wps/claude-sonnet-4-5`
+  - 默认模型改为 `gateway/claude-opus-4-5`，fallback 链 `cursor-local/opus-4.6` → `cursor-local/sonnet-4.6` → `gateway/claude-sonnet-4-5`
   - 移除 doubao provider（已不使用）
   - ollama 模型更新为 `qwen2.5:3b`，API 改为 `ollama`
-  - Agent 列表更新为 4 个：<名称>(main) / Coder / 产品文案专家 / 金山文档转换
-  - channels 从 `imessage` 改为 `agentspace`（含 wps_sid 认证）
+  - Agent 列表更新为 4 个：<名称>(main) / Coder / 产品文案专家 / 在线文档转换
+  - channels 从 `imessage` 改为 `agentspace`（含 gateway_sid 认证）
   - plugins 从 `imessage` 改为 `agentspace`
   - 补充工具安全策略：`deny`、`elevated`、`exec`（safeBins + safeBinProfiles + safeBinTrustedDirs）、`fs.workspaceOnly`
   - 补充 `skills.entries`（禁用 weather/gemini/openai-image-gen）
   - 心跳改为 `ollama/qwen2.5:3b` + 独立 session + 轻上下文
-- 修复 coder agent fallback 拼写错误（`wps/opus-4-5` → `wps/claude-opus-4-5`）
+- 修复 coder agent fallback 拼写错误（`gateway/opus-4-5` → `gateway/claude-opus-4-5`）
 - 配置快照同步心跳驱动 TODO 监控相关变更：
-  - heartbeat 模型从 `ollama/qwen2.5:3b` → `wps/claude-sonnet-4-5` → `wps/claude-3-5-haiku`（成本更低，Haiku 足够执行心跳多步工具调用链）
+  - heartbeat 模型从 `ollama/qwen2.5:3b` → `gateway/claude-sonnet-4-5` → `gateway/claude-3-5-haiku`（成本更低，Haiku 足够执行心跳多步工具调用链）
   - `tools.deny` 从 `["group:runtime", "sessions_spawn", "sessions_send"]` 精简为 `["sessions_spawn"]`（开放 exec 供 heartbeat 转发）
   - `safeBins` 新增 `openclaw`（允许 heartbeat 通过 exec 调用 `openclaw agent` 唤醒主 session）
 - 配置快照同步模型升级（V3 协议）：
-  - wps-proxy 升级为 V3 协议（完全兼容 OpenAI API，无需格式转换）
-  - WPS provider 扩展至 14 个模型（Claude/GPT-5/Gemini/DeepSeek/Kimi/o3），全部企业零成本
-  - 默认模型 `wps/claude-opus-4-6`，fallback 链 `opus-4-5` → `cursor/opus-4.6` → `sonnet-4-5` → `cursor/sonnet-4.6`
+  - gateway-proxy 升级为 V3 协议（完全兼容 OpenAI API，无需格式转换）
+  - 企业网关 provider 扩展至 14 个模型（Claude/GPT-5/Gemini/DeepSeek/Kimi/o3），全部企业零成本
+  - 默认模型 `gateway/claude-opus-4-6`，fallback 链 `opus-4-5` → `cursor/opus-4.6` → `sonnet-4-5` → `cursor/sonnet-4.6`
   - 新增 V3 特性：开发者模式、X-Action-Id 随机数、Client-Request-Id 链路追踪
 
 ## 2026-03-06
 
 ### 新增
 
-- `wps-proxy/` — WPS 内网 AI 网关代理，将 WPS 网关 V2 协议转为 OpenAI 兼容接口，直接使用网关原始模型 ID（`claude-opus-4-5`、`claude-sonnet-4-5`），企业内部零成本
-- `wps-proxy` 增加 LaunchAgent 管理（开机自启 + 崩溃重启），Token 改为环境变量必配
+- `gateway-proxy/` — 企业内网 AI 网关代理，将企业网关 V2 协议转为 OpenAI 兼容接口，直接使用网关原始模型 ID（`claude-opus-4-5`、`claude-sonnet-4-5`），企业内部零成本
+- `gateway-proxy` 增加 LaunchAgent 管理（开机自启 + 崩溃重启），Token 改为环境变量必配
 - `docs/02-models.md` 增加方案 D（企业 AI 网关）完整说明，含 hosts 配置、auth-profiles、LaunchAgent 部署、模型切换命令
-- `docs/99-config-snapshot.md` 增加 wps provider 配置段和双代理架构图
+- `docs/99-config-snapshot.md` 增加 gateway provider 配置段和双代理架构图
 - `docs/10-optimization-tips.md` — Token 优化最佳实践
 - `docs/06-mcp-integration.md` 增加 MCP 分层策略、Home Assistant 集成说明
 - `docs/99-config-snapshot.md` 增加 mcporter 配置、禁用 skill 列表说明
@@ -55,16 +63,12 @@
 - MCP 文档重写：统一使用 mcporter，强调正确调用格式（key=value，不传 JSON），补充 kad/game-character 常用工具示例
 - 去掉 `~/.openclaw/mcp.json` 作为配置源的方案，配置统一维护在 `~/.mcporter/mcporter.json`
 
-- cursor-proxy ACP session 改为复用模式，达到阈值（50 条请求或 10 万 token）才轮换，替代之前每次请求都重建 session
-- cursor-proxy 默认工作目录从空改为 `~/.openclaw`，确保 Agent 能访问 skills/memory 等资源
-- cursor-proxy 增加会话自动轮换、死锁保护、idle 超时检测
 - 脱敏处理，清理文档中的私人信息
 
 ## 2026-03-05
 
 ### 新增
 
-- `cursor-proxy/` — 基于 `agent acp` 的常驻进程代理，替代 llm-proxy 的 spawn 模式，后续请求 2-3 秒响应
 - `.cursor/skills/knowledge-base-query/` — 企业知识库查询 skill
 - `.cursor/skills/requirement-extraction/` — 需求文档提取 skill
 - `.cursor/skills/token-optimization/` — Token 优化检查 skill
@@ -76,13 +80,13 @@
 
 ### 删除
 
-- `llm-proxy/` — 旧的 spawn 模式代理，已被 cursor-proxy ACP 模式替代
+- `llm-proxy/` — 旧的 spawn 模式代理，已移除
 
 ### 修改
 
 - `llm-proxy/server.js` 修复重复文本问题（非 ask 模式下 assistant 消息覆盖而非追加）
 - `llm-proxy/server.js` 修复 session 持久化问题（从 cliBackends 切回 llm-proxy 方案）
-- `docs/02-models.md` 增加 Cursor Agent ACP proxy 作为推荐方案
+- `docs/02-models.md` 模型方案更新
 - `docs/99-config-snapshot.md` 更新为 ACP 模式架构说明
 
 ## 2026-03-04

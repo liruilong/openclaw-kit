@@ -143,15 +143,15 @@ From [KDicon-pro Icon Library Design and Development Standard.otl]:
 **Icon Library Usage**:
 
 1. **In-app local icon library** (preferred)
-   - URL format: `https://global.local.wps.cn/icons/v1/<theme>/<iconname>`
-   - Example: `<img src="https://global.local.wps.cn/icons/v1/icon1_16.svg" />`
+   - URL format: `https://example.com/icons/v1/<theme>/<iconname>`
+   - Example: `<img src="https://example.com/icons/v1/icon1_16.svg" />`
 
 2. **Online icon library** (fallback)
    - URL format: `https://global-volc.wpscdn.cn/icons/v1/<theme>/<iconname>`
 
-3. **WPS-icon Web Component** (new spec icons)
-   - Include: `<script type="module" src="https://global.local.wps.cn/uxkit/wps-icon/index.js"></script>`
-   - Use: `<wps-icon src="https://global-volc.wpscdn.cn/icons/pro/3dblueprint.svg"></wps-icon>`
+3. **企业 Icon Web Component** (new spec icons)
+   - Include: `<script type="module" src="https://example.com/uxkit/icon/index.js"></script>`
+   - Use: `<wps-icon src="https://example.com/icons/pro/3dblueprint.svg"></wps-icon>`
 
 📖 Full doc: https://365.kdocs.cn/l/xxx
 ```

@@ -36,7 +36,7 @@ npx mcporter call kad.search_wiki_list --params '{"keyword":"openclaw"}'
                           ┌─ Cursor MCP ──→ openclaw-gateway（编码工具）
                           │
 OpenClaw Agent ───────────┤
-                          │                 ┌─ kad（金山文档知识库）
+                          │                 ┌─ kad（在线文档知识库）
                           └─ mcporter ──────┤─ playwright（浏览器自动化）
                                             └─ ...（更多服务）
 ```
@@ -51,16 +51,16 @@ OpenClaw Agent ───────────┤
 {
   "mcpServers": {
     "kad": {
-      "baseUrl": "http://kmcp.wps.cn/kad/wiki/mcp",
+      "baseUrl": "http://kmcp.example.com/kad/wiki/mcp",
       "headers": {
-        "cookie": "wps_sid=xxx;kso_sid=yyy"
+        "cookie": "gateway_sid=xxx;kso_sid=yyy"
       }
     }
   }
 }
 ```
 
-cookie 获取：浏览器登录 [金山文档](https://www.kdocs.cn) → 开发者工具 → Application → Cookies → 复制 `wps_sid` 和 `kso_sid`
+cookie 获取：浏览器登录 [在线文档](https://www.kdocs.cn) → 开发者工具 → Application → Cookies → 复制 `gateway_sid` 和 `kso_sid`
 
 ### STDIO 类服务（本地进程）
 
@@ -98,7 +98,7 @@ npx mcporter call <service-name>.<tool-name> param1="value1" param2="value2"
 
 | 服务 | 类型 | 工具数 | 说明 |
 |------|------|--------|------|
-| kad | HTTP | 6 | 金山文档知识库（搜索、召回文档内容） |
+| kad | HTTP | 6 | 在线文档知识库（搜索、召回文档内容） |
 | playwright | STDIO | 22 | 浏览器自动化（导航、截图、交互） |
 
 ### kad 常用工具

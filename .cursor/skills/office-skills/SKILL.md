@@ -1,17 +1,17 @@
 ---
 name: wpsv7-skills
-description: WPS 365 V7 API SKILL 工具集，集成通讯录、日历、会议、云文档、IM 等能力。
+description: 企业协作 V7 API SKILL 工具集，集成通讯录、日历、会议、云文档、IM 等能力。
 ---
 
-# WPS 365 SKILL 工具集
+# 企业协作 SKILL 工具集
 
-基于 WPS 365 V7 API 封装的命令行工具，帮助你快速完成企业协作任务。
+基于企业协作 V7 API 封装的命令行工具，帮助你快速完成企业协作任务。
 
 ## 快速开始
 
 ```bash
 # 设置认证（只需设置一次）
-export WPS_SID="你的WPS_SID值"
+export GATEWAY_SID="你的GATEWAY_SID值"
 
 # 在 wpsv7-skill 根目录执行
 cd wpsv7-skill
@@ -108,7 +108,7 @@ python skills/meeting/run.py list-participants <meeting_id>
 
 ## drive
 
-金山云文档管理。上传**单个 .md 文件**时自动转为**智能文档**（.otl）。
+在线文档云文档管理。上传**单个 .md 文件**时自动转为**智能文档**（.otl）。
 
 ```bash
 # 上传文件（.md 会以智能文档形式上传）
@@ -226,9 +226,9 @@ python skills/im/run.py search-messages --chat-ids "chat_id1,chat_id2"
 
 | 错误 | 原因 | 解决方案 |
 |------|------|----------|
-| 缺少 wps_sid | 未设置环境变量 | `export WPS_SID=xxx` |
+| 缺少 gateway_sid | 未设置环境变量 | `export GATEWAY_SID=xxx` |
 | csrfCheckFailed | CSRF 验证失败 | 检查 Cookie 配置 |
-| 401/403 | 凭证无效/过期 | 重新获取 wps_sid |
+| 401/403 | 凭证无效/过期 | 重新获取 gateway_sid |
 
 ---
 

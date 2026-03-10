@@ -132,7 +132,7 @@ heartbeat session 的行为完全由此文件控制。
 ~/.openclaw/agents/
 ├── product-writer/     # 产品文案专家
 │   └── SOUL.md
-├── kdocs-converter/    # 金山文档转换
+├── kdocs-converter/    # 在线文档转换
 │   └── SOUL.md
 └── coder/              # 开发 Agent
     └── agent/
@@ -151,14 +151,14 @@ heartbeat session 的行为完全由此文件控制。
       {
         "id": "product-writer",
         "agentDir": "/Users/<username>/.openclaw/agents/product-writer",
-        "model": { "primary": "wps/claude-opus-4-5" },
+        "model": { "primary": "gateway/claude-opus-4-5" },
         "identity": { "name": "产品文案专家", "emoji": "✍️" }
       },
       {
         "id": "kdocs-converter",
         "agentDir": "/Users/<username>/.openclaw/agents/kdocs-converter",
-        "model": { "primary": "wps/claude-sonnet-4-5" },
-        "identity": { "name": "金山文档转换", "emoji": "📄" }
+        "model": { "primary": "gateway/claude-sonnet-4-5" },
+        "identity": { "name": "在线文档转换", "emoji": "📄" }
       }
     ]
   }

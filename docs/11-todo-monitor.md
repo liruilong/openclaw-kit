@@ -111,7 +111,7 @@ EOF
 推荐使用低成本的云端模型（本地小模型无法可靠执行多步工具调用链）：
 
 ```bash
-openclaw config set agents.defaults.heartbeat.model wps/claude-3-5-haiku
+openclaw config set agents.defaults.heartbeat.model gateway/claude-3-5-haiku
 openclaw gateway restart
 ```
 

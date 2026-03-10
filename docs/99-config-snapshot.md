@@ -1,6 +1,6 @@
 # 当前配置快照
 
-> 截取于 2026-03-10（v3），WPS AI 网关 V3 协议（OpenAI 兼容，14 模型）为唯一模型来源 + 工具安全策略。cursor-proxy 已因公司禁令移除。
+> 截取于 2026-03-10（v3），企业 AI 网关 V3 协议（OpenAI 兼容，14 模型）为唯一模型来源 + 工具安全策略。
 
 ## openclaw.json
 
@@ -13,22 +13,22 @@
   "models": {
     "mode": "merge",
     "providers": {
-      "wps": {
+      "gateway": {
         "baseUrl": "http://127.0.0.1:<proxy-port>/v1",
         "api": "openai-completions",
         "comment": "V3 协议 — proxy 层 14 模型，OpenClaw 注册 12 个（Claude/GPT-5/Gemini/DeepSeek），零成本",
         "models": [
-          { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 16384 },
-          { "id": "claude-opus-4-5", "name": "Claude Opus 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
-          { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
-          { "id": "claude-sonnet-4", "name": "Claude Sonnet 4 (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
-          { "id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
-          { "id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
-          { "id": "gpt-5", "name": "GPT-5 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
-          { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro (WPS)", "reasoning": true, "contextWindow": 1048576, "maxTokens": 65536 },
-          { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (WPS)", "contextWindow": 1048576, "maxTokens": 65536 },
-          { "id": "deepseek-v3.2", "name": "DeepSeek V3.2 (WPS)", "contextWindow": 128000, "maxTokens": 8192 },
-          { "id": "deepseek-reasoner", "name": "DeepSeek R1 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 }
+          { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (企业网关)", "reasoning": true, "contextWindow": 200000, "maxTokens": 16384 },
+          { "id": "claude-opus-4-5", "name": "Claude Opus 4.5 (企业网关)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+          { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (企业网关)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+          { "id": "claude-sonnet-4", "name": "Claude Sonnet 4 (企业网关)", "contextWindow": 200000, "maxTokens": 4096 },
+          { "id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (企业网关)", "contextWindow": 200000, "maxTokens": 4096 },
+          { "id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (企业网关)", "contextWindow": 200000, "maxTokens": 4096 },
+          { "id": "gpt-5", "name": "GPT-5 (企业网关)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
+          { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro (企业网关)", "reasoning": true, "contextWindow": 1048576, "maxTokens": 65536 },
+          { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (企业网关)", "contextWindow": 1048576, "maxTokens": 65536 },
+          { "id": "deepseek-v3.2", "name": "DeepSeek V3.2 (企业网关)", "contextWindow": 128000, "maxTokens": 8192 },
+          { "id": "deepseek-reasoner", "name": "DeepSeek R1 (企业网关)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 }
         ]
       },
       "ollama": {
@@ -51,19 +51,19 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "wps/claude-opus-4-6",
+        "primary": "gateway/claude-opus-4-6",
         "fallbacks": [
-          "wps/claude-opus-4-5",
-          "wps/claude-sonnet-4-5"
+          "gateway/claude-opus-4-5",
+          "gateway/claude-sonnet-4-5"
         ]
       },
       "models": {
-        "wps/claude-opus-4-6": {}, "wps/claude-opus-4-5": {},
-        "wps/claude-sonnet-4-5": {}, "wps/gpt-5": {},
-        "wps/gemini-2.5-pro": {}, "wps/deepseek-reasoner": {},
-        "wps/claude-sonnet-4": {}, "wps/claude-3-7-sonnet": {},
-        "wps/claude-3-5-haiku": {}, "wps/gemini-2.5-flash": {},
-        "wps/deepseek-v3.2": {}
+        "gateway/claude-opus-4-6": {}, "gateway/claude-opus-4-5": {},
+        "gateway/claude-sonnet-4-5": {}, "gateway/gpt-5": {},
+        "gateway/gemini-2.5-pro": {}, "gateway/deepseek-reasoner": {},
+        "gateway/claude-sonnet-4": {}, "gateway/claude-3-7-sonnet": {},
+        "gateway/claude-3-5-haiku": {}, "gateway/gemini-2.5-flash": {},
+        "gateway/deepseek-v3.2": {}
       },
       "workspace": "~/agents/<agent-name>",
       "bootstrapMaxChars": 40000,
@@ -77,14 +77,14 @@
       },
       "compaction": { "mode": "safeguard" },
       "heartbeat": {
-        "model": "wps/claude-3-5-haiku",
+        "model": "gateway/claude-3-5-haiku",
         "session": "heartbeat",
         "lightContext": true
       },
       "maxConcurrent": 4,
       "subagents": {
         "maxConcurrent": 8,
-        "model": "wps/claude-sonnet-4-5"
+        "model": "gateway/claude-sonnet-4-5"
       }
     },
     "list": [
@@ -100,18 +100,18 @@
       {
         "id": "product-writer",
         "model": {
-          "primary": "wps/claude-opus-4-6",
-          "fallbacks": ["wps/claude-sonnet-4-5"]
+          "primary": "gateway/claude-opus-4-6",
+          "fallbacks": ["gateway/claude-sonnet-4-5"]
         },
         "identity": { "name": "产品文案专家", "emoji": "✍️" }
       },
       {
         "id": "kdocs-converter",
         "model": {
-        "primary": "wps/claude-sonnet-4-5",
-        "fallbacks": ["wps/claude-opus-4-5"]
+        "primary": "gateway/claude-sonnet-4-5",
+        "fallbacks": ["gateway/claude-opus-4-5"]
         },
-        "identity": { "name": "金山文档转换", "emoji": "📄" }
+        "identity": { "name": "在线文档转换", "emoji": "📄" }
       }
     ]
   },
@@ -153,7 +153,7 @@
       "accounts": {
         "default": {
           "enabled": true,
-          "wps_sid": "${WPS_SID}",
+          "gateway_sid": "${GATEWAY_SID}",
           "currentUser": "<username>",
           "device_uuid": "<device-uuid>"
         }
@@ -204,29 +204,27 @@
 ### 模型架构
 
 ```
-OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（OpenAI 兼容，14 模型，企业零成本）
+OpenClaw Gateway → gateway-proxy V3 (localhost:<port>) → 企业 AI 网关 V3（OpenAI 兼容，14 模型，企业零成本）
                 → Ollama (localhost:11434) → Qwen 2.5 3B（Embedding 专用）
 ```
 
-> ⚠️ cursor-proxy ACP 已因公司禁令移除，所有模型请求统一走 WPS AI 网关。
-
-- **默认模型**：`wps/claude-opus-4-6`（WPS 网关 V3 协议）
-- **Fallback 链**：`wps/claude-opus-4-5` → `wps/claude-sonnet-4-5`
-- **心跳模型**：`wps/claude-3-5-haiku`（独立 session，轻上下文模式，低成本 TODO 检查和转发）
+- **默认模型**：`gateway/claude-opus-4-6`（企业网关 V3 协议）
+- **Fallback 链**：`gateway/claude-opus-4-5` → `gateway/claude-sonnet-4-5`
+- **心跳模型**：`gateway/claude-3-5-haiku`（独立 session，轻上下文模式，低成本 TODO 检查和转发）
 - **OpenClaw 注册模型**：Claude (6) / GPT-5 (1) / Gemini (2) / DeepSeek (2) = 11 个（proxy 层另有 o3/gpt-5-mini/gpt-4.1/kimi-k2.5 共 14 个）
-- **子代理模型**：`wps/claude-sonnet-4-5`（自动分配给子 agent）
+- **子代理模型**：`gateway/claude-sonnet-4-5`（自动分配给子 agent）
 - **Embedding**：Ollama `nomic-embed-text`（记忆搜索用）
-- **切换命令**：`openclaw models set wps/claude-opus-4-6` / `openclaw models set wps/gemini-2.5-pro`
-- **wps-proxy 生命周期**：macOS LaunchAgent（`ai.openclaw.wps-proxy`），开机自启、崩溃重启
+- **切换命令**：`openclaw models set gateway/claude-opus-4-6` / `openclaw models set gateway/gemini-2.5-pro`
+- **gateway-proxy 生命周期**：macOS LaunchAgent（`ai.openclaw.gateway-proxy`），开机自启、崩溃重启
 
 ### 多 Agent 架构
 
 | Agent | 身份 | 默认模型 | 工作目录 | 用途 |
 |-------|------|---------|---------|------|
-| 🎤 **<名称>** (main) | 默认 Agent | `wps/claude-opus-4-6` | `~/agents/<agent-name>` | 日常聊天、通用任务 |
-| 💻 **Coder** | 写代码 | 继承默认（`wps/claude-opus-4-6`） | `~/workspace` | 编码、调试、代码审查 |
-| ✍️ **产品文案专家** | 文案写作 | `wps/claude-opus-4-6` | — | 产品文案撰写 |
-| 📄 **金山文档转换** | 文档处理 | `wps/claude-sonnet-4-5` | — | 金山文档格式转换 |
+| 🎤 **<名称>** (main) | 默认 Agent | `gateway/claude-opus-4-6` | `~/agents/<agent-name>` | 日常聊天、通用任务 |
+| 💻 **Coder** | 写代码 | 继承默认（`gateway/claude-opus-4-6`） | `~/workspace` | 编码、调试、代码审查 |
+| ✍️ **产品文案专家** | 文案写作 | `gateway/claude-opus-4-6` | — | 产品文案撰写 |
+| 📄 **在线文档转换** | 文档处理 | `gateway/claude-sonnet-4-5` | — | 在线文档格式转换 |
 
 ### 工具安全策略
 
@@ -240,11 +238,6 @@ OpenClaw Gateway → wps-proxy V3 (localhost:<port>) → WPS AI 网关 V3（Open
 | **信任路径** | `safeBinTrustedDirs: [/usr/local/bin, /opt/homebrew/bin, /usr/bin]` | 仅信任这些路径下的可执行文件 |
 | **文件操作** | `fs.workspaceOnly: true` | 文件读写限制在工作区内 |
 | **补丁应用** | `applyPatch.workspaceOnly: true` | 补丁只能应用到工作区文件 |
-
-### ~~cursor-proxy ACP 模式（已弃用）~~
-
-> ⚠️ **公司已禁止使用 Cursor 代理方式。** 所有模型请求统一通过 WPS AI 网关完成。
-> 历史文档保留在 [cursor-proxy README](../cursor-proxy/README.md) 供参考。
 
 ### mcporter 配置（非编码 MCP）
 
@@ -274,10 +267,8 @@ mcporter 管理不经过 Cursor IDE 的通用 MCP 工具，配置文件位于 `~
 
 ### 历史方案（已弃用）
 
-- **cursor-proxy ACP 代理**：通过 Cursor Agent CLI 暴露模型为 OpenAI API，**已因公司禁令弃用**，所有请求改走 WPS AI 网关
-- **llm-proxy**（spawn 模式）：每次请求 spawn 新 `agent -p` 进程，13-27 秒延迟，已被 ACP 模式替代（ACP 模式本身也已弃用）
+- **llm-proxy**（spawn 模式）：已移除
 - **cliBackends**：OpenClaw 原生 CLI Backend，存在 transcript 持久化问题，已弃用
-- **openclaw-cursor-brain 插件**：早期通过插件管理 cursor-proxy 生命周期，已弃用
-- **心跳 ollama 模型**：早期心跳使用 `ollama/qwen2.5:3b` 本地模型，因 ≤7B 模型无法可靠执行多步工具调用链，先改为 `wps/claude-sonnet-4-5`，后优化为更低成本的 `wps/claude-3-5-haiku`
-- **WPS V2 协议**：早期 wps-proxy 使用 V2 协议（需要 OpenAI → WPS 格式转换），已升级为 V3 协议（完全兼容 OpenAI API，proxy 只做 header 注入和模型名前缀处理）
+- **心跳 ollama 模型**：早期心跳使用 `ollama/qwen2.5:3b` 本地模型，因 ≤7B 模型无法可靠执行多步工具调用链，先改为 `gateway/claude-sonnet-4-5`，后优化为更低成本的 `gateway/claude-3-5-haiku`
+- **企业网关 V2 协议**：早期 gateway-proxy 使用 V2 协议（需要 OpenAI → 企业网关格式转换），已升级为 V3 协议（完全兼容 OpenAI API，proxy 只做 header 注入和模型名前缀处理）
 - **心跳驱动 TODO 监控**：通过 cron job + HEARTBEAT.md 指令实现 heartbeat 检查 → exec 唤醒主 session 处理，详见 [docs/11-todo-monitor.md](./11-todo-monitor.md)

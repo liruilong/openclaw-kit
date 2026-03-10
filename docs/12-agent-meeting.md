@@ -137,5 +137,5 @@ zsh ~/agents/<your-agent>/scripts/meeting.sh /tmp/topic.md 2 requirement-analyst
 ## 搭配使用
 
 - 会议产出的 Action Items 可以直接分发给各 Agent 执行
-- 会议记录可以用 `wps-doc` 上传到金山文档共享
+- 会议记录可以用 `wps-doc` 上传到在线文档共享
 - 结合 `todo.md` 跟踪会议决议的执行情况

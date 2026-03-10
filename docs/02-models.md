@@ -4,49 +4,47 @@
 
 | 方案 | 成本 | 特点 | 适用场景 |
 |------|------|------|---------|
-| **A. 企业 AI 网关（推荐）** | 企业内部零成本 | WPS V3 协议，14+ 模型（Claude/GPT-5/Gemini/DeepSeek） | 企业内网环境，日常首选 |
+| **A. 企业 AI 网关（推荐）** | 企业内部零成本 | 企业网关 V3 协议，14+ 模型（Claude/GPT-5/Gemini/DeepSeek） | 企业内网环境，日常首选 |
 | **B. 火山引擎（豆包）** | 按量付费 | 国产模型，Tool Use 能力强 | 需独立 API 调用 |
 | **C. 其他 OpenAI 兼容** | 按量付费 | Qwen/GLM/DeepSeek 等 | 灵活选择 |
-| ~~**D. Cursor Agent ACP 代理**~~ | 零额外成本 | ⚠️ **已被公司禁止使用**，仅保留文档供参考 | — |
-
 ---
 
-## 方案 A: 企业 AI 网关（WPS）— 推荐首选
+## 方案 A: 企业 AI 网关 — 推荐首选
 
-通过 wps-proxy 将 WPS 内网 AI 网关转换为 OpenAI 兼容接口。**企业内部零成本，支持 14+ 模型（Claude/GPT-5/Gemini/DeepSeek），适合日常所有场景。**
+通过 gateway-proxy 将企业内网 AI 网关转换为 OpenAI 兼容接口。**企业内部零成本，支持 14+ 模型（Claude/GPT-5/Gemini/DeepSeek），适合日常所有场景。**
 
 ### 前提条件
 
 - Node.js >= 18（proxy.mjs 使用原生 fetch）
-- 需在公司内网环境，能访问 `ai-gateway.wps.cn`
-- 需配置 `WPS_TOKEN` 环境变量
+- 需在公司内网环境，能访问 `enterprise-gateway.example.com`
+- 需配置 `GATEWAY_TOKEN` 环境变量
 - 需配置 hosts 绑定（测试/线上共用）：
 
 ```
 120.92.124.158 aigc-gateway-test.ksord.com
-120.92.124.158 ai-gateway.wps.cn
+120.92.124.158 enterprise-gateway.example.com
 120.92.124.158 prompt-server-test.ksord.com
 ```
 
 ### 架构
 
 ```
-OpenClaw → wps-proxy (localhost:<port>) → WPS AI 网关 V3 (ai-gateway.wps.cn)
+OpenClaw → gateway-proxy (localhost:<port>) → 企业 AI 网关 V3 (enterprise-gateway.example.com)
 ```
 
-wps-proxy 使用 V3 协议（完全兼容 OpenAI API），proxy 只做 header 注入和模型名前缀处理。
+gateway-proxy 使用 V3 协议（完全兼容 OpenAI API），proxy 只做 header 注入和模型名前缀处理。
 
 ### 部署与启动
 
 #### 1. 部署脚本
 
 ```bash
-cp wps-proxy/proxy.mjs ~/.openclaw/wps-proxy.mjs
+cp gateway-proxy/proxy.mjs ~/.openclaw/gateway-proxy.mjs
 ```
 
 #### 2. 配置 LaunchAgent（开机自启 + 崩溃重启）
 
-创建 `~/Library/LaunchAgents/ai.openclaw.wps-proxy.plist`：
+创建 `~/Library/LaunchAgents/ai.openclaw.gateway-proxy.plist`：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -54,9 +52,9 @@ cp wps-proxy/proxy.mjs ~/.openclaw/wps-proxy.mjs
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>ai.openclaw.wps-proxy</string>
+    <string>ai.openclaw.gateway-proxy</string>
     <key>Comment</key>
-    <string>WPS AI Gateway Proxy</string>
+    <string>企业 AI Gateway Proxy</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -66,19 +64,19 @@ cp wps-proxy/proxy.mjs ~/.openclaw/wps-proxy.mjs
     <key>ProgramArguments</key>
     <array>
       <string>/path/to/node</string>
-      <string>/Users/<username>/.openclaw/wps-proxy.mjs</string>
+      <string>/Users/<username>/.openclaw/gateway-proxy.mjs</string>
     </array>
     <key>StandardOutPath</key>
-    <string>/Users/<username>/.openclaw/logs/wps-proxy.log</string>
+    <string>/Users/<username>/.openclaw/logs/gateway-proxy.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/<username>/.openclaw/logs/wps-proxy.err.log</string>
+    <string>/Users/<username>/.openclaw/logs/gateway-proxy.err.log</string>
     <key>EnvironmentVariables</key>
     <dict>
       <key>HOME</key>
       <string>/Users/<username></string>
       <key>PORT</key>
       <string>3010</string>
-      <key>WPS_TOKEN</key>
+      <key>GATEWAY_TOKEN</key>
       <string><your-token></string>
     </dict>
   </dict>
@@ -88,14 +86,14 @@ cp wps-proxy/proxy.mjs ~/.openclaw/wps-proxy.mjs
 加载服务：
 
 ```bash
-launchctl load ~/Library/LaunchAgents/ai.openclaw.wps-proxy.plist
+launchctl load ~/Library/LaunchAgents/ai.openclaw.gateway-proxy.plist
 ```
 
 #### 3. 手动启动（不用 LaunchAgent）
 
 ```bash
-export WPS_TOKEN=<your-token>
-node ~/.openclaw/wps-proxy.mjs
+export GATEWAY_TOKEN=<your-token>
+node ~/.openclaw/gateway-proxy.mjs
 ```
 
 ### Provider 配置
@@ -103,21 +101,21 @@ node ~/.openclaw/wps-proxy.mjs
 在 `openclaw.json` 的 `models.providers` 下配置：
 
 ```json
-"wps": {
+"gateway": {
   "baseUrl": "http://127.0.0.1:<port>/v1",
   "api": "openai-completions",
   "models": [
-    { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 16384 },
-    { "id": "claude-opus-4-5", "name": "Claude Opus 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
-    { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (WPS)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
-    { "id": "claude-sonnet-4", "name": "Claude Sonnet 4 (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
-    { "id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
-    { "id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (WPS)", "contextWindow": 200000, "maxTokens": 4096 },
-    { "id": "gpt-5", "name": "GPT-5 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
-    { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro (WPS)", "reasoning": true, "contextWindow": 1048576, "maxTokens": 16384 },
-    { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (WPS)", "contextWindow": 1048576, "maxTokens": 16384 },
-    { "id": "deepseek-v3.2", "name": "DeepSeek V3.2 (WPS)", "contextWindow": 128000, "maxTokens": 8192 },
-    { "id": "deepseek-reasoner", "name": "DeepSeek R1 (WPS)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 }
+    { "id": "claude-opus-4-6", "name": "Claude Opus 4.6 (企业网关)", "reasoning": true, "contextWindow": 200000, "maxTokens": 16384 },
+    { "id": "claude-opus-4-5", "name": "Claude Opus 4.5 (企业网关)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (企业网关)", "reasoning": true, "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-sonnet-4", "name": "Claude Sonnet 4 (企业网关)", "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-3-7-sonnet", "name": "Claude 3.7 Sonnet (企业网关)", "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "claude-3-5-haiku", "name": "Claude 3.5 Haiku (企业网关)", "contextWindow": 200000, "maxTokens": 4096 },
+    { "id": "gpt-5", "name": "GPT-5 (企业网关)", "reasoning": true, "contextWindow": 128000, "maxTokens": 16384 },
+    { "id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro (企业网关)", "reasoning": true, "contextWindow": 1048576, "maxTokens": 16384 },
+    { "id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash (企业网关)", "contextWindow": 1048576, "maxTokens": 16384 },
+    { "id": "deepseek-v3.2", "name": "DeepSeek V3.2 (企业网关)", "contextWindow": 128000, "maxTokens": 8192 },
+    { "id": "deepseek-reasoner", "name": "DeepSeek R1 (企业网关)", "reasoning": true, "contextWindow": 128000, "maxTokens": 8192 }
   ]
 }
 ```
@@ -126,8 +124,8 @@ node ~/.openclaw/wps-proxy.mjs
 
 ```json
 {
-  "primary": "wps/claude-opus-4-6",
-  "fallbacks": ["wps/claude-opus-4-5", "wps/claude-sonnet-4-5"]
+  "primary": "gateway/claude-opus-4-6",
+  "fallbacks": ["gateway/claude-opus-4-5", "gateway/claude-sonnet-4-5"]
 }
 ```
 
@@ -154,12 +152,12 @@ node ~/.openclaw/wps-proxy.mjs
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `PORT` | `3010` | 监听端口 |
-| `WPS_TOKEN` | **必须配置** | Bearer Token |
-| `WPS_UID` | `9010` | AI-Gateway-Uid |
-| `WPS_PRODUCT` | `kdocs-as-baseserver` | AI-Gateway-Product-Name |
-| `WPS_INTENTION` | `kdocs_as_assistant_intentrecognize` | AI-Gateway-Intention-Code |
+| `GATEWAY_TOKEN` | **必须配置** | Bearer Token |
+| `GATEWAY_UID` | `9010` | AI-Gateway-Uid |
+| `GATEWAY_PRODUCT` | `kdocs-as-baseserver` | AI-Gateway-Product-Name |
+| `GATEWAY_INTENTION` | `kdocs_as_assistant_intentrecognize` | AI-Gateway-Intention-Code |
 
-详见 [wps-proxy README](../wps-proxy/README.md)
+详见 [gateway-proxy README](../gateway-proxy/README.md)
 
 ---
 
@@ -195,11 +193,11 @@ node ~/.openclaw/wps-proxy.mjs
 
 配置路径：`agents.defaults.model`
 
-当前主模型使用 WPS 网关，豆包作为 fallback：
+当前主模型使用 企业网关，豆包作为 fallback：
 
 ```json
 {
-  "primary": "wps/claude-opus-4-6",
+  "primary": "gateway/claude-opus-4-6",
   "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
 }
 ```
@@ -218,7 +216,7 @@ node ~/.openclaw/wps-proxy.mjs
 
 - `target: "last"` — 心跳投递到最近活跃的会话
 - `activeHours` — 限制心跳仅在活跃时段运行
-- 各 Agent 可覆盖 heartbeat 配置（如主 Agent 使用 `wps/claude-3-5-haiku` 进行心跳）
+- 各 Agent 可覆盖 heartbeat 配置（如主 Agent 使用 `gateway/claude-3-5-haiku` 进行心跳）
 
 ### 配置命令
 
@@ -230,10 +228,10 @@ openclaw models list
 openclaw models status
 
 # 设置默认模型
-openclaw models set wps/claude-opus-4-6
+openclaw models set gateway/claude-opus-4-6
 
 # 添加模型 fallback
-openclaw models fallbacks add wps/claude-opus-4-5
+openclaw models fallbacks add gateway/claude-opus-4-5
 ```
 
 ### 添加新模型
@@ -263,51 +261,13 @@ openclaw models fallbacks add wps/claude-opus-4-5
 
 ---
 
-## ~~方案 D: Cursor Agent ACP 代理（已禁止）~~
-
-> ⚠️ **公司已禁止使用 Cursor 代理方式**。以下内容仅供历史参考，请勿在生产环境使用。
->
-> 所有模型请求应通过 **方案 A（WPS AI 网关）** 完成。
-
-<details>
-<summary>展开查看历史配置（仅供参考）</summary>
-
-通过 cursor-proxy 以 ACP 常驻进程模式将 Cursor 订阅的模型暴露为 OpenAI 兼容 API。
-
-### 架构
-
-```
-OpenClaw → cursor-proxy (localhost:18790) → agent acp (常驻进程) → Cursor 模型
-```
-
-### Provider 配置
-
-```json
-"cursor-local": {
-  "baseUrl": "http://127.0.0.1:18790/v1",
-  "apiKey": "local",
-  "api": "openai-completions",
-  "models": [
-    { "id": "opus-4.6", "name": "Cursor Agent (Opus 4.6)", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 16384 },
-    { "id": "sonnet-4.6", "name": "Cursor Agent (Sonnet 4.6)", "reasoning": false, "input": ["text"], "contextWindow": 128000, "maxTokens": 16384 }
-  ]
-}
-```
-
-详见 [cursor-proxy README](../cursor-proxy/README.md)
-
-</details>
-
----
-
 ## 模型提供商对比
 
 | 模型提供商 | Tool Use 能力 | 性价比 | OpenAI 兼容 | 状态 |
 |-----------|-------------|--------|-----------|------|
-| **WPS AI 网关** | 极强（Claude 4.6/GPT-5/Gemini） | **企业内部零成本** | 是（via wps-proxy V3） | ✅ 推荐 |
+| **企业 AI 网关** | 极强（Claude 4.6/GPT-5/Gemini） | **企业内部零成本** | 是（via gateway-proxy V3） | ✅ 推荐 |
 | 豆包 Doubao | 强 | 高 | 是 | ✅ 可用 |
 | Qwen（通义千问） | 很强 | 高 | 是 | ✅ 可用 |
 | GLM-4（智谱） | 不错 | 极高（有免费额度） | 是 | ✅ 可用 |
 | DeepSeek | 一般 | 极高 | 是 | ✅ 可用 |
 | Moonshot（Kimi） | 好 | 中 | 是 | ✅ 可用 |
-| ~~Cursor Agent ACP 代理~~ | 极强（GPT-5/Claude 4.6） | 零额外成本 | 是（via cursor-proxy） | ⛔ 公司已禁止 |

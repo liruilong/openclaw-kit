@@ -1,7 +1,7 @@
 {
-  "name": "wps-ai-proxy",
+  "name": "openclaw-gateway-proxy",
   "version": "1.0.0",
-  "description": "WPS AI Gateway proxy — OpenAI-compatible API adapter for WPS internal AI gateway",
+  "description": "企业 AI Gateway proxy — OpenAI 兼容接口，对接企业内网 AI 网关",
   "main": "proxy.mjs",
   "type": "module",
   "scripts": {

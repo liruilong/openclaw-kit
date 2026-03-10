@@ -48,87 +48,7 @@ openclaw onboard   # 交互式向导，需用户在终端中手动操作
 
 提供以下方案，向用户说明后让其选择。
 
-### 方案 A: Cursor Agent ACP 代理（推荐，零额外成本）
-
-通过 cursor-proxy 以 **ACP 常驻进程模式**使用 Cursor 订阅的顶级模型。**零额外费用，后续请求 2-3 秒响应，每月节省 200U+。**
-
-#### A.1 安装并登录 Cursor Agent CLI
-
-```bash
-# 检查是否已装
-which agent && agent --version
-# 未安装则安装
-curl https://cursor.com/install -fsS | bash
-# 登录
-agent login
-# 验证可用模型
-agent --list-models
-```
-
-#### A.2 启动 cursor-proxy
-
-```bash
-cd cursor-proxy
-CURSOR_WORKSPACE_DIR=~/.openclaw npm start
-```
-
-推荐使用 macOS LaunchAgent 管理生命周期（开机自启 + 崩溃重启）。
-
-cursor-proxy 自动完成：
-- 启动 ACP proxy（`agent acp` 常驻进程，`http://127.0.0.1:18790/v1`）
-- Session 复用 + 阈值自动轮换 + idle timeout 保护
-- 崩溃自动重启
-
-#### A.3 配置模型
-
-```json
-{
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "cursor-local/opus-4.6",
-        "fallbacks": ["doubao/doubao-seed-2-0-pro-260215"]
-      },
-      "subagents": {
-        "model": "cursor-local/opus-4.6"
-      }
-    }
-  }
-}
-```
-
-**推荐多角色模型分配**：
-
-| 角色 | 配置路径 | 推荐模型 | 理由 |
-|------|---------|---------|------|
-| 对话（主模型） | `agents.defaults.model` | `cursor-local/opus-4.6` | 面对用户，质量优先 |
-| 开发（子代理） | `agents.defaults.subagents.model` | `cursor-local/opus-4.6` | 代码质量优先（走订阅无额外成本） |
-| 心跳（定时检查） | `agents.defaults.heartbeat` | `cursor-local/sonnet-4.6` 或 `ollama/qwen2.5:3b` | 订阅模型或本地模型，零/低成本 |
-
-验证：
-
-```bash
-# 检查 ACP proxy 状态
-curl -sf http://127.0.0.1:18790/v1/health
-# 应返回 "mode": "acp", "acp": { "running": true }
-
-# 测试模型响应
-openclaw agent --agent main --message "你好" --json
-```
-
-常用模型（通过 `agent --list-models` 查询完整列表）：
-
-| 模型 ID | 说明 |
-|---------|------|
-| `opus-4.6` | Claude 4.6 Opus（默认） |
-| `gpt-5.2` | GPT-5.2 通用 |
-| `sonnet-4.6` | Claude 4.6 Sonnet |
-| `gemini-3-flash` | Gemini 3 Flash（快速） |
-
-> **ACP vs 旧 llm-proxy**：旧方案每次 spawn 新进程（13-27秒），ACP 模式使用常驻子进程（2-3秒）。
-> 独立运行 cursor-proxy 详见 [cursor-proxy README](../../cursor-proxy/README.md)。
-
-### 方案 B: 火山引擎（豆包 Doubao）
+### 方案 A: 火山引擎（豆包 Doubao）
 
 按量付费，API Key 通过环境变量注入，禁止硬编码。
 
@@ -150,7 +70,7 @@ openclaw agent --agent main --message "你好" --json
 }
 ```
 
-### 方案 C: 其他 OpenAI 兼容提供商
+### 方案 B: 其他 OpenAI 兼容提供商
 
 | 提供商 | baseUrl | 特点 |
 |--------|---------|------|
@@ -159,11 +79,11 @@ openclaw agent --agent main --message "你好" --json
 | DeepSeek | `https://api.deepseek.com/v1` | 极高性价比 |
 | SiliconFlow | `https://api.siliconflow.cn/v1` | 免费额度 |
 
-配置格式与方案 B 相同，替换 `baseUrl` 和 `apiKey`。
+配置格式与方案 A 相同，替换 `baseUrl` 和 `apiKey`。
 
-### 方案 D: 企业 AI 网关（内网统一入口）
+### 方案 C: 企业 AI 网关（内网统一入口）
 
-使用公司内部 AI 网关（ai-gateway.wps.cn），统一协议接入多家模型，无需各自申请 API Key。适合企业内部使用。
+使用公司内部 AI 网关（企业统一网关域名），统一协议接入多家模型，无需各自申请 API Key。适合企业内部使用。
 
 **前提**：需申请网关接入参数（appid + apikey），参见内部文档《网关参数申请指引》。
 
@@ -171,10 +91,8 @@ openclaw agent --agent main --message "你好" --json
 
 | 环境 | 地址 |
 |------|------|
-| 测试/线上 | `ai-gateway.wps.cn` |
-| 海外新加坡 | `aigc-gateway-sg.ksord.com` |
-| 海外美国 | `aigc-gateway-us.ksord.com` |
-| 海外欧洲 | `aigc-gateway-eu.ksord.com` |
+| 测试/线上 | `enterprise-gateway.example.com`（示例，替换为实际域名） |
+| 海外节点 | 按企业实际提供的网关地址配置 |
 
 #### 接口类型
 
@@ -206,7 +124,7 @@ AI 网关的 Chat 接口不是标准 OpenAI 格式，需配置自定义 provider
   "models": {
     "providers": {
       "ai-gateway": {
-        "baseUrl": "https://ai-gateway.wps.cn/api/v2/llm",
+        "baseUrl": "https://enterprise-gateway.example.com/api/v2/llm",
         "apiKey": "<从环境变量获取 AI-Gateway-Apikey>",
         "api": "openai-completions",
         "headers": {
@@ -232,8 +150,7 @@ AI 网关的 Chat 接口不是标准 OpenAI 格式，需配置自定义 provider
 
 #### 参考文档
 
-- 《网关V2版本接入说明书》：https://365.kdocs.cn/l/cfLgpiiUj8Sq
-- 《AI应用接入AI网关说明文档》（内部）
+- 企业内网《网关接入说明书》或内部文档
 
 ## Phase 3: 启动 Gateway
 
@@ -289,11 +206,11 @@ macOS 权限需求：
 
 ### Agentspace 渠道（数字员工 / 企业协作 IM）
 
-Agentspace 是金山办公的数字员工开发平台，通过 WebSocket 将 OpenClaw Agent 接入企业协作 IM，让同事可以直接在 IM 里与 Agent 对话。
+Agentspace 是在线文档办公的数字员工开发平台，通过 WebSocket 将 OpenClaw Agent 接入企业协作 IM，让同事可以直接在 IM 里与 Agent 对话。
 
 #### 4.1 安装 Agentspace 插件
 
-插件包 `@ecis/agentspace` 托管在**内网云枢 npm**（`registry.npm.wps.cn`），公网 `npmjs.com` 上找不到。
+插件包 `@ecis/agentspace` 托管在**内网 npm registry**，公网 `npmjs.com` 上找不到。
 
 **方式一：通过 openclaw plugins install（推荐）**
 
@@ -340,7 +257,7 @@ openclaw gateway
 |------|------|
 | 选择 Gateway 模式 | `Local` |
 | 选择 Channels | `Configure/link` → `Agentspace` |
-| WPS OAuth 登录 | 扫码或账号登录 WPS，完成 OAuth 授权 |
+| 企业 OAuth 登录 | 扫码或账号登录企业协作平台，完成 OAuth 授权 |
 | DM Policy | 选 `Open`（允许所有人私聊） |
 
 完成后向导会自动将 Agentspace 频道配置写入 `~/.openclaw/openclaw.json`。
@@ -398,7 +315,7 @@ provider 选项：`edge`（免费）、`elevenlabs`（付费高质量）、`open
 
 | MCP | 用途 | 接入方式 | 需要的凭证 |
 |-----|------|---------|-----------|
-| `kad` (企业知识库) | 查询企业 wiki、技术文档、API 规范 | HTTP | `cookie`（wps_sid + kso_sid） |
+| `kad` (企业知识库) | 查询企业 wiki、技术文档、API 规范 | HTTP | `cookie`（gateway_sid + kso_sid） |
 | `playwright` | 浏览器自动化、网页测试、截图 | stdio (npx) | 无 |
 | 自定义远程 MCP | 用户自己的 MCP 服务 | HTTP | 用户提供 URL |
 
@@ -416,16 +333,16 @@ provider 选项：`edge`（免费）、`elevenlabs`（付费高质量）、`open
 
 #### 6.1 kad（企业知识库）
 
-**向用户索取凭证**：需要 `wps_sid` 和 `kso_sid`。告知用户获取方式：
+**向用户索取凭证**：需要 `gateway_sid` 和 `kso_sid`。告知用户获取方式：
 
-> 打开浏览器 → 登录 WPS 网页版 → F12 开发者工具 → Application → Cookies → 复制 `wps_sid` 和 `kso_sid` 的值。
+> 打开浏览器 → 登录企业协作网页版 → F12 开发者工具 → Application → Cookies → 复制 `gateway_sid` 和 `kso_sid` 的值。
 
 获取到 cookie 后注册（**禁止将 cookie 值硬编码到任何代码或文档中**）：
 
 ```bash
 npx mcporter config add kad \
-  --url "http://kmcp.wps.cn/kad/wiki/mcp" \
-  --header "cookie=wps_sid=<用户的wps_sid值>;kso_sid=<用户的kso_sid值>" \
+  --url "http://kmcp.example.com/kad/wiki/mcp" \
+  --header "cookie=gateway_sid=<用户的gateway_sid值>;kso_sid=<用户的kso_sid值>" \
   --scope home
 ```
 
@@ -499,7 +416,7 @@ openclaw gateway restart             # 重启让 OpenClaw 加载
 添加触发规则，告诉 Agent 什么时候用什么工具。例如：
 
 ```
-当用户发来金山文档链接（365.kdocs.cn / kdocs.cn）时：
+当用户发来在线文档链接（365.kdocs.cn / kdocs.cn）时：
 1. 提取 link_id
 2. 调用 kad MCP 获取文档内容
 3. 根据意图处理
